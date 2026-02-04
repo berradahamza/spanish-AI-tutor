@@ -1,11 +1,9 @@
-// Import the functions you need from the SDKs you need
+// src/firebase-config.js
 import { initializeApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAmUDLm6VWbOChCe3D96yuTSM-AuYgb3gA",
   authDomain: "ai-spanish-tutor.firebaseapp.com",
@@ -16,6 +14,11 @@ const firebaseConfig = {
   measurementId: "G-MBYPFLRY1Y"
 };
 
-// Initialize Firebase
+// Initialisation
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Export des services pour les composants Vue
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const googleProvider = new GoogleAuthProvider();
+export const analytics = getAnalytics(app);
