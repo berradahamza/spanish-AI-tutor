@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spanish AI - Dictionnaire</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- THEME COMMUN --- */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .sagrada-light-bg {
+            background-color: #fffbf5;
+            background-image: 
+                radial-gradient(at 20% 30%, hsla(45, 100%, 85%, 0.4) 0px, transparent 50%),
+                radial-gradient(at 80% 10%, hsla(200, 100%, 85%, 0.3) 0px, transparent 50%),
+                radial-gradient(at 50% 80%, hsla(10, 100%, 90%, 0.4) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .sagrada-header-texture {
+            background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.07' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .organic-shape {
+            border-radius: 45% 55% 70% 30% / 30% 60% 40% 70%;
+        }
+
+        /* Classe pour l'effet "Sticky" de la barre de recherche */
+        .sticky-search {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+
+<body class="bg-orange-50 h-screen flex justify-center overflow-hidden font-sans">
+
+    <div class="w-full max-w-md h-full bg-white flex flex-col shadow-xl relative">
+
+        <header class="bg-red-800 sagrada-header-texture text-white p-4 flex items-center justify-between shadow-md z-40 relative">
+            <div class="flex items-center gap-3">
+                <a href="accueil.html" class="hover:bg-red-700 p-2 rounded-full transition">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide">Mon Dictionnaire</h1>
+                    <div class="text-xs text-red-200 flex items-center gap-1">
+                        <i class="fa-solid fa-book text-[10px]"></i>
+                        <span id="word-count">Chargement...</span>
+                    </div>
+                </div>
+            </div>
+            <button class="hover:bg-red-700 p-2 rounded-full transition text-amber-400">
+                <i class="fa-solid fa-arrow-down-a-z"></i>
+            </button>
+        </header>
+
+        <main class="flex-1 overflow-y-auto sagrada-light-bg no-scrollbar relative" id="dictionary-container">
+            
+            <div class="sticky-search bg-white/80 border-b border-red-50 p-4 shadow-sm">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="search-input" placeholder="Rechercher un mot..." 
+                        class="w-full bg-white border border-gray-200 text-gray-800 rounded-full py-3 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition shadow-sm placeholder-gray-400">
+                </div>
+            </div>
+
+            <div id="word-list" class="p-4 space-y-6 pb-20">
+                </div>
+
+        </main>
+    </div>
+
+    <script>
+        // --- 1. FAUSSES DONNÉES (Simulation Firestore) ---
+        // Dans la vraie version, ces données viendront de Firebase
+        const rawWords = [
+            { es: "abogado", fr: "avocat", type: "nom" },
+            { es: "agua", fr: "eau", type: "nom" },
+            { es: "amar", fr: "aimer", type: "verbe" },
+            { es: "banco", fr: "banque / banc", type: "nom" },
+            { es: "beber", fr: "boire", type: "verbe" },
+            { es: "carta", fr: "menu / carte", type: "nom" },
+            { es: "casa", fr: "maison", type: "nom" },
+            { es: "comer", fr: "manger", type: "verbe" },
+            { es: "cuenta", fr: "addition", type: "nom" },
+            { es: "dormir", fr: "dormir", type: "verbe" },
+            { es: "elefante", fr: "éléphant", type: "nom" },
+            { es: "gato", fr: "chat", type: "nom" },
+            { es: "hola", fr: "bonjour", type: "expression" },
+            { es: "langosta", fr: "langouste", type: "nom" },
+            { es: "mañana", fr: "demain / matin", type: "nom" },
+            { es: "mesa", fr: "table", type: "nom" },
+            { es: "perro", fr: "chien", type: "nom" },
+            { es: "playa", fr: "plage", type: "nom" },
+            { es: "querer", fr: "vouloir", type: "verbe" },
+            { es: "restaurante", fr: "restaurant", type: "nom" },
+            { es: "sol", fr: "soleil", type: "nom" },
+            { es: "tener", fr: "avoir", type: "verbe" },
+            { es: "vivir", fr: "vivre", type: "verbe" },
+            { es: "zapato", fr: "chaussure", type: "nom" }
+        ];
+
+        const listContainer = document.getElementById('word-list');
+        const countLabel = document.getElementById('word-count');
+        const searchInput = document.getElementById('search-input');
+
+        // --- 2. FONCTION D'AFFICHAGE ---
+        function renderList(wordsToRender) {
+            listContainer.innerHTML = ""; // Vider la liste
+            countLabel.innerText = `${wordsToRender.length} mots appris`;
+
+            // Si vide
+            if (wordsToRender.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="text-center mt-10 text-gray-400">
+                        <i class="fa-regular fa-face-frown-open text-4xl mb-3"></i>
+                        <p>Aucun mot trouvé.</p>
+                    </div>`;
+                return;
+            }
+
+            // Trier alphabétiquement
+            wordsToRender.sort((a, b) => a.es.localeCompare(b.es));
+
+            // Grouper par première lettre
+            let currentLetter = "";
+            let currentSection = null;
+
+            wordsToRender.forEach(word => {
+                const firstChar = word.es.charAt(0).toUpperCase();
+
+                // Nouvelle section si la lettre change
+                if (firstChar !== currentLetter) {
+                    currentLetter = firstChar;
+                    
+                    // Création de l'en-tête de lettre (ex: "A")
+                    const headerHTML = `
+                        <div class="flex items-center gap-3 mt-2 mb-3">
+                            <div class="w-10 h-10 organic-shape bg-red-100 flex items-center justify-center text-red-800 font-bold text-lg shadow-sm border border-red-200">
+                                ${currentLetter}
+                            </div>
+                            <div class="h-px bg-red-100 flex-1"></div>
+                        </div>
+                    `;
+                    listContainer.insertAdjacentHTML('beforeend', headerHTML);
+                }
+
+                // Création de la carte du mot
+                const cardHTML = `
+                    <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center mb-3 active:scale-[0.99] transition cursor-pointer group" onclick="speak('${word.es}')">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-gray-800 font-bold text-lg capitalize">${word.es}</span>
+                                <span class="text-[10px] uppercase font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded tracking-wider">${word.type}</span>
+                            </div>
+                            <p class="text-gray-500 text-sm italic">${word.fr}</p>
+                        </div>
+                        <button class="w-8 h-8 rounded-full bg-orange-50 text-orange-400 flex items-center justify-center group-hover:bg-orange-100 group-hover:text-orange-600 transition">
+                            <i class="fa-solid fa-volume-high text-sm"></i>
+                        </button>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', cardHTML);
+            });
+        }
+
+        // --- 3. FONCTION DE RECHERCHE ---
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = rawWords.filter(w => 
+                w.es.toLowerCase().includes(term) || 
+                w.fr.toLowerCase().includes(term)
+            );
+            renderList(filtered);
+        });
+
+        // --- 4. FONCTION AUDIO (TTS) ---
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                // On essaie de trouver une voix espagnole
+                const voices = window.speechSynthesis.getVoices();
+                const esVoice = voices.find(v => v.lang.startsWith('es'));
+                if (esVoice) utterance.voice = esVoice;
+                
+                utterance.lang = 'es-ES';
+                utterance.rate = 0.9;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // --- INIT ---
+        // Charger les voix (fix pour Chrome) puis afficher
+        window.speechSynthesis.onvoiceschanged = () => {}; 
+        renderList(rawWords); // Affichage initial
+
+    </script>
+</body>
+</html>

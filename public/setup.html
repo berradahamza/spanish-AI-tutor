@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spanish AI - Setup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- THEME COMMUN --- */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .sagrada-light-bg {
+            background-color: #fffbf5;
+            background-image: 
+                radial-gradient(at 20% 30%, hsla(45, 100%, 85%, 0.4) 0px, transparent 50%),
+                radial-gradient(at 80% 10%, hsla(200, 100%, 85%, 0.3) 0px, transparent 50%),
+                radial-gradient(at 50% 80%, hsla(10, 100%, 90%, 0.4) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .sagrada-header-texture {
+            background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.07' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .organic-shape {
+            border-radius: 45% 55% 70% 30% / 30% 60% 40% 70%;
+        }
+
+        /* Animation de sélection */
+        .chip-selected {
+            background-color: #fee2e2; /* red-100 */
+            border-color: #ef4444; /* red-500 */
+            color: #991b1b; /* red-800 */
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+
+<body class="bg-orange-50 h-screen flex justify-center overflow-hidden font-sans">
+
+    <div class="w-full max-w-md h-full bg-white flex flex-col shadow-xl relative">
+
+        <header class="bg-red-800 sagrada-header-texture text-white p-4 flex items-center justify-between shadow-md z-10 relative overflow-hidden">
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-red-900 opacity-20" style="clip-path: polygon(0 100%, 100% 100%, 100% 80%, 75% 60%, 50% 80%, 25% 60%, 0 80%);"></div>
+            
+            <div class="flex items-center gap-3 relative z-20">
+                <a href="accueil.html" class="hover:bg-red-700 p-2 rounded-full transition flex items-center justify-center">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <h1 class="font-bold text-lg tracking-wide">Nouvelle Conversation</h1>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-6 space-y-8 sagrada-light-bg no-scrollbar relative">
+            
+            <div class="text-center space-y-2 mt-4">
+                <div class="w-16 h-16 organic-shape bg-red-100 mx-auto flex items-center justify-center border-2 border-red-200 mb-4 shadow-sm">
+                    <i class="fa-solid fa-comments text-3xl text-red-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">De quoi veux-tu parler ?</h2>
+                <p class="text-gray-500 text-sm">Choisis un thème ou invente le tien.</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-3xl shadow-md border border-red-50 relative group focus-within:ring-2 focus-within:ring-red-400 transition">
+                <label class="block text-xs font-bold text-red-400 uppercase mb-2">Ton Scénario</label>
+                <textarea id="scenario-input" rows="3" 
+                    class="w-full text-lg text-gray-800 placeholder-gray-300 outline-none resize-none font-medium"
+                    placeholder="Ex: Je veux acheter des chaussures à Madrid..."></textarea>
+                <div class="absolute bottom-3 right-3 text-gray-300 group-focus-within:text-red-400 transition">
+                    <i class="fa-solid fa-pen"></i>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-sm font-bold text-gray-400 uppercase mb-3 ml-1">Idées populaires</h3>
+                <div class="flex flex-wrap gap-3" id="suggestions-container">
+                    <button onclick="selectTopic('Commander au restaurant')" class="chip px-4 py-2 rounded-xl bg-white border-2 border-transparent shadow-sm text-gray-600 font-medium hover:bg-gray-50 transition flex items-center gap-2">
+                        <span class="text-lg">🍔</span> Restaurant
+                    </button>
+                    <button onclick="selectTopic('Rencontrer un nouvel ami')" class="chip px-4 py-2 rounded-xl bg-white border-2 border-transparent shadow-sm text-gray-600 font-medium hover:bg-gray-50 transition flex items-center gap-2">
+                        <span class="text-lg">👋</span> Présentations
+                    </button>
+                    <button onclick="selectTopic('Demander son chemin')" class="chip px-4 py-2 rounded-xl bg-white border-2 border-transparent shadow-sm text-gray-600 font-medium hover:bg-gray-50 transition flex items-center gap-2">
+                        <span class="text-lg">🗺️</span> Voyage
+                    </button>
+                    <button onclick="selectTopic('Réserver un hôtel')" class="chip px-4 py-2 rounded-xl bg-white border-2 border-transparent shadow-sm text-gray-600 font-medium hover:bg-gray-50 transition flex items-center gap-2">
+                        <span class="text-lg">🏨</span> Hôtel
+                    </button>
+                    <button onclick="selectTopic('Marchander au marché')" class="chip px-4 py-2 rounded-xl bg-white border-2 border-transparent shadow-sm text-gray-600 font-medium hover:bg-gray-50 transition flex items-center gap-2">
+                        <span class="text-lg">💰</span> Shopping
+                    </button>
+                </div>
+            </div>
+
+            <div class="h-10"></div> </main>
+
+        <footer class="p-4 bg-white border-t border-red-50 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20">
+            <button onclick="startConversation()" 
+                class="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold text-lg py-4 rounded-2xl shadow-lg shadow-red-200 transform active:scale-[0.98] transition flex items-center justify-center gap-3">
+                Commencer <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </footer>
+
+    </div>
+
+    <script>
+        const textarea = document.getElementById('scenario-input');
+        const chips = document.querySelectorAll('.chip');
+
+        // Fonction quand on clique sur une suggestion
+        function selectTopic(text) {
+            // Remplit le champ texte
+            textarea.value = text;
+            
+            // Gestion visuelle de la sélection
+            chips.forEach(chip => chip.classList.remove('chip-selected', 'border-red-400', 'bg-red-50'));
+            // On ajoute le style au bouton cliqué (via event.currentTarget si on passait l'event, 
+            // mais ici on fait simple : on anime juste le champ texte pour montrer qu'il a changé)
+            
+            textarea.focus();
+            
+            // Petit effet "flash" sur le textarea
+            textarea.parentElement.classList.add('ring-2', 'ring-red-400');
+            setTimeout(() => {
+                textarea.parentElement.classList.remove('ring-2', 'ring-red-400');
+            }, 300);
+        }
+
+        // Fonction de démarrage
+        function startConversation() {
+            const topic = textarea.value.trim();
+            
+            if (!topic) {
+                alert("S'il te plaît, choisis un sujet ou écris-en un !");
+                return;
+            }
+
+            // 1. Sauvegarder le sujet dans le navigateur pour que la page chat.html puisse le lire
+            localStorage.setItem('currentScenario', topic);
+            
+            // 2. Rediriger vers le chat
+            window.location.href = 'chat.html';
+        }
+    </script>
+</body>
+</html>

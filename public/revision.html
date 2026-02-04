@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spanish AI - Révisions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- THEME COMMUN --- */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Fond Sagrada */
+        .sagrada-light-bg {
+            background-color: #fffbf5;
+            background-image: 
+                radial-gradient(at 20% 30%, hsla(45, 100%, 85%, 0.4) 0px, transparent 50%),
+                radial-gradient(at 80% 10%, hsla(200, 100%, 85%, 0.3) 0px, transparent 50%),
+                radial-gradient(at 50% 80%, hsla(10, 100%, 90%, 0.4) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* Animation pour le feedback (Slide Up) */
+        .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        /* Animation pulsation pour le micro actif */
+        .pulse-ring {
+            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+            animation: pulse-red 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
+        }
+        @keyframes pulse-red {
+            to { box-shadow: 0 0 0 15px rgba(220, 38, 38, 0); }
+        }
+    </style>
+</head>
+
+<body class="bg-orange-50 h-screen flex justify-center overflow-hidden font-sans">
+
+    <div class="w-full max-w-md h-full bg-white flex flex-col shadow-xl relative overflow-hidden">
+
+        <header class="p-4 pt-6 flex items-center gap-4 bg-white z-10 border-b border-gray-50">
+            <a href="accueil.html" class="text-gray-400 hover:text-gray-600 transition">
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </a>
+            <div class="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                <div id="progress-bar" class="h-full bg-green-500 w-[20%] rounded-full transition-all duration-500 ease-out"></div>
+            </div>
+            <div class="text-green-600 font-bold text-sm" id="progress-text">1/5</div>
+        </header>
+
+        <main class="flex-1 flex flex-col justify-center px-6 pb-20 relative z-0 sagrada-light-bg">
+            
+            <h2 class="text-xl font-bold text-gray-800 mb-8 leading-tight">
+                Traduisez cette phrase en espagnol
+            </h2>
+
+            <div class="flex items-start gap-3 mb-8">
+                <div class="w-10 h-10 bg-red-100 rounded-2xl rounded-tr-sm flex items-center justify-center border-2 border-red-200 shrink-0 shadow-sm">
+                    <i class="fa-solid fa-robot text-red-600 text-lg"></i>
+                </div>
+                <div class="bg-white border-2 border-gray-100 p-4 rounded-2xl rounded-tl-sm shadow-sm relative flex-1">
+                    <div class="absolute top-4 -left-2 w-4 h-4 bg-white border-l-2 border-b-2 border-gray-100 transform rotate-45"></div>
+                    
+                    <p class="text-lg text-gray-700 font-medium leading-relaxed" id="question-text">
+                        Je voudrais une table pour deux.
+                    </p>
+                    <button onclick="speakFrench()" class="mt-2 text-red-400 hover:text-red-600 text-xs font-bold uppercase tracking-wide flex items-center gap-1">
+                        <i class="fa-solid fa-volume-high"></i> Écouter
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <textarea id="user-input" rows="3" 
+                    class="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 text-lg text-gray-800 placeholder-gray-300 focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition resize-none shadow-sm"
+                    placeholder="Écrivez ou parlez..."></textarea>
+                
+                <div class="flex justify-end">
+                    <button id="mic-btn" onclick="toggleListening()" 
+                        class="w-12 h-12 rounded-full bg-white border-2 border-gray-200 text-gray-400 shadow-sm flex items-center justify-center text-lg hover:border-red-400 hover:text-red-500 transition active:scale-95">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+                </div>
+            </div>
+
+        </main>
+
+        <footer class="p-4 border-t border-gray-100 bg-white z-10">
+            <button onclick="checkAnswer()" id="check-btn" 
+                class="w-full bg-green-500 hover:bg-green-600 text-white font-bold text-lg py-3.5 rounded-2xl shadow-md transform active:scale-[0.98] transition border-b-4 border-green-700 active:border-b-0 active:translate-y-1">
+                VÉRIFIER
+            </button>
+        </footer>
+
+        <div id="feedback-sheet" class="absolute bottom-0 left-0 w-full p-6 pb-8 rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] hidden z-50 transition-all">
+            
+            <div class="w-full">
+                <div class="flex items-center gap-3 mb-2">
+                    <div id="feedback-icon" class="w-8 h-8 rounded-full flex items-center justify-center bg-white shadow-sm">
+                        </div>
+                    <h3 id="feedback-title" class="font-bold text-xl">
+                        </h3>
+                </div>
+
+                <div class="mb-6 pl-1">
+                    <p id="feedback-message" class="text-sm font-medium opacity-90"></p>
+                    <p id="correction-text" class="text-lg font-bold mt-1"></p>
+                </div>
+
+                <button onclick="nextExercise()" id="continue-btn"
+                    class="w-full font-bold text-lg py-3.5 rounded-2xl shadow-sm border-b-4 transform active:scale-[0.98] transition active:border-b-0 active:translate-y-1">
+                    CONTINUER
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const exercises = [
+            { 
+                fr: "Je voudrais une table pour deux.", 
+                es: "Quisiera una mesa para dos",
+                accepted: ["quisiera una mesa para dos", "me gustaría una mesa para dos", "quería una mesa para dos"]
+            },
+            { 
+                fr: "Où sont les toilettes ?", 
+                es: "Donde estan los baños",
+                accepted: ["donde estan los baños", "¿dónde están los baños?", "donde estan los servicios"]
+            },
+            { 
+                fr: "L'addition, s'il vous plaît.", 
+                es: "La cuenta, por favor",
+                accepted: ["la cuenta por favor", "la cuenta, por favor"]
+            },
+            { 
+                fr: "Je ne comprends pas.", 
+                es: "No entiendo",
+                accepted: ["no entiendo", "no comprendo"]
+            },
+            { 
+                fr: "Merci beaucoup.", 
+                es: "Muchas gracias",
+                accepted: ["muchas gracias"]
+            }
+        ];
+
+        let currentIndex = 0;
+        let isListening = false;
+
+        const ui = {
+            question: document.getElementById('question-text'),
+            input: document.getElementById('user-input'),
+            progressBar: document.getElementById('progress-bar'),
+            progressText: document.getElementById('progress-text'),
+            sheet: document.getElementById('feedback-sheet'),
+            icon: document.getElementById('feedback-icon'),
+            title: document.getElementById('feedback-title'),
+            msg: document.getElementById('feedback-message'),
+            correction: document.getElementById('correction-text'),
+            continueBtn: document.getElementById('continue-btn'),
+            checkBtn: document.getElementById('check-btn'),
+            micBtn: document.getElementById('mic-btn')
+        };
+
+        function loadExercise() {
+            const ex = exercises[currentIndex];
+            ui.question.innerText = ex.fr;
+            ui.input.value = "";
+            ui.sheet.classList.add('hidden');
+            
+            const percent = ((currentIndex) / exercises.length) * 100;
+            ui.progressBar.style.width = `${percent}%`;
+            ui.progressText.innerText = `${currentIndex + 1}/${exercises.length}`;
+
+            ui.checkBtn.classList.remove('hidden');
+        }
+
+        function checkAnswer() {
+            const userText = ui.input.value.trim().toLowerCase();
+            const ex = exercises[currentIndex];
+            const cleanUser = userText.replace(/[.,¡!¿?]/g, "");
+            
+            const isCorrect = ex.accepted.some(ans => {
+                const cleanAns = ans.replace(/[.,¡!¿?]/g, "").toLowerCase();
+                return cleanUser === cleanAns || cleanUser === cleanAns; 
+            });
+
+            showFeedback(isCorrect, ex.es);
+        }
+
+        function showFeedback(isCorrect, correctAnswer) {
+            ui.sheet.classList.remove('hidden', 'bg-green-100', 'bg-red-100', 'text-green-800', 'text-red-800');
+            ui.continueBtn.classList.remove('bg-green-500', 'bg-red-500', 'hover:bg-green-600', 'hover:bg-red-600', 'text-white', 'border-green-700', 'border-red-700');
+            ui.sheet.classList.add('slide-up');
+
+            if (isCorrect) {
+                ui.sheet.classList.add('bg-green-100', 'text-green-800');
+                ui.icon.innerHTML = '<i class="fa-solid fa-check text-green-500 text-xl"></i>';
+                ui.title.innerText = "Excellent !";
+                ui.msg.innerText = "";
+                ui.correction.innerText = "";
+                ui.continueBtn.classList.add('bg-green-500', 'hover:bg-green-600', 'text-white', 'border-green-700');
+                playSound('success');
+            } else {
+                ui.sheet.classList.add('bg-red-100', 'text-red-800');
+                ui.icon.innerHTML = '<i class="fa-solid fa-xmark text-red-500 text-xl"></i>';
+                ui.title.innerText = "Oups...";
+                ui.msg.innerText = "La bonne réponse était :";
+                ui.correction.innerText = correctAnswer;
+                ui.continueBtn.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white', 'border-red-700');
+                playSound('error');
+            }
+            speakSpanish(correctAnswer);
+        }
+
+        function nextExercise() {
+            if (currentIndex < exercises.length - 1) {
+                currentIndex++;
+                loadExercise();
+            } else {
+                alert("Session terminée ! Bravo !");
+                window.location.href = 'index.html';
+            }
+        }
+
+        function speakSpanish(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                const voices = window.speechSynthesis.getVoices();
+                const esVoice = voices.find(v => v.lang.startsWith('es'));
+                if (esVoice) utterance.voice = esVoice;
+                utterance.lang = 'es-ES';
+                utterance.rate = 0.9;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        function speakFrench() {
+            if ('speechSynthesis' in window) {
+                const text = document.getElementById('question-text').innerText;
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'fr-FR';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        let recognition;
+        
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'es-ES';
+
+            recognition.onstart = function() {
+                isListening = true;
+                ui.micBtn.classList.add('pulse-ring', 'border-red-500', 'text-red-500');
+            };
+
+            recognition.onend = function() {
+                isListening = false;
+                ui.micBtn.classList.remove('pulse-ring', 'border-red-500', 'text-red-500');
+            };
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                ui.input.value = transcript;
+            };
+        }
+
+        function toggleListening() {
+            if (!recognition) {
+                alert("La reconnaissance vocale n'est pas supportée par ce navigateur (Essayez Chrome).");
+                return;
+            }
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        function playSound(type) {
+            console.log(`Sound played: ${type}`);
+        }
+
+        window.speechSynthesis.onvoiceschanged = () => {}; 
+        loadExercise();
+
+    </script>
+</body>
+</html>

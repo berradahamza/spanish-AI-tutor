@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chat Espagnol PWA - Voix Corrigée</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .tooltip-anim { animation: popIn 0.2s ease-out forwards; }
+        @keyframes popIn { 
+            0% { opacity: 0; transform: translate(-50%, 10px); } 
+            100% { opacity: 1; transform: translate(-50%, 0); } 
+        }
+        /* Thème Sagrada */
+        .sagrada-light-bg {
+            background-color: #fffbf5;
+            background-image: 
+                radial-gradient(at 20% 30%, hsla(45, 100%, 85%, 0.4) 0px, transparent 50%),
+                radial-gradient(at 80% 10%, hsla(200, 100%, 85%, 0.3) 0px, transparent 50%),
+                radial-gradient(at 50% 80%, hsla(10, 100%, 90%, 0.4) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+        .sagrada-header-texture {
+            background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.07' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E");
+        }
+        .organic-shape { border-radius: 45% 55% 70% 30% / 30% 60% 40% 70%; }
+    </style>
+</head>
+
+<body class="bg-orange-50 h-screen flex justify-center overflow-hidden font-sans">
+
+    <div class="w-full max-w-md h-full bg-white flex flex-col shadow-xl relative">
+
+        <header class="bg-red-800 sagrada-header-texture text-white p-4 flex items-center justify-between shadow-md z-10 relative overflow-hidden">
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-red-900 opacity-20" style="clip-path: polygon(0 100%, 100% 100%, 100% 80%, 75% 60%, 50% 80%, 25% 60%, 0 80%);"></div>
+            <div class="flex items-center gap-3 relative z-20">
+                <a href="accueil.html" class="hover:bg-red-700 p-2 rounded-full transition flex items-center justify-center">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide">Commander au resto</h1>
+                    <div class="text-xs text-red-200 flex items-center gap-1">
+                        <span class="w-2 h-2 bg-green-400 rounded-full inline-block"></span>
+                        Objectif : 10 nuevos
+                    </div>
+                </div>
+            </div>
+            <button class="hover:bg-red-700 p-2 rounded-full transition text-amber-400 relative z-20"><i class="fa-solid fa-gear"></i></button>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 space-y-6 sagrada-light-bg no-scrollbar" id="chat-container">
+            
+            <div class="flex gap-3 items-start">
+                <div class="w-10 h-10 organic-shape bg-red-100 flex items-center justify-center shrink-0 border-2 border-red-200 shadow-sm">
+                    <i class="fa-solid fa-robot text-red-800 text-lg transform -rotate-6"></i>
+                </div>
+                <div class="flex flex-col gap-1 max-w-[85%]">
+                    <div class="bg-white/95 backdrop-blur-sm p-3 rounded-2xl rounded-tl-none shadow-sm border border-red-100 text-gray-800 leading-relaxed">
+                        ¡Hola! Bienvenido al restaurante.
+                    </div>
+                    <button onclick="speakText('¡Hola! Bienvenido al restaurante.')" class="self-start text-xs text-red-600 font-medium flex items-center gap-1 hover:text-red-800 transition ml-1 cursor-pointer">
+                        <i class="fa-solid fa-volume-high"></i> Écouter
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-3 justify-end">
+                <div class="bg-gradient-to-br from-red-700 to-red-800 text-white p-3 rounded-2xl rounded-tr-none shadow-md max-w-[85%]">
+                    Hola, me gustaría ver el menú, por favor.
+                </div>
+            </div>
+
+            <div class="flex gap-3 items-start">
+                <div class="w-10 h-10 organic-shape bg-red-100 flex items-center justify-center shrink-0 border-2 border-red-200 shadow-sm">
+                    <i class="fa-solid fa-robot text-red-800 text-lg transform -rotate-6"></i>
+                </div>
+                <div class="flex flex-col gap-1 max-w-[85%]">
+                    <div class="bg-white/95 backdrop-blur-sm p-4 rounded-2xl rounded-tl-none shadow-sm border border-red-50 text-gray-800 leading-relaxed">
+                        Claro. Aquí tienes la 
+                        
+                        <span class="relative inline-block cursor-pointer word-trigger" onclick="toggleTooltip(this)">
+                            <span class="border-b-2 border-green-500 text-green-700 font-bold px-0.5 hover:bg-green-50 transition">carta</span>
+                            <div class="tooltip hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-gray-900 text-amber-400 font-medium text-xs rounded-lg shadow-lg whitespace-nowrap z-20">
+                                menu / carte
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                        </span>. 
+                        
+                        <br><br>
+                        ¿Te apetece probar nuestro 
+                        <span class="relative inline-block cursor-pointer word-trigger" onclick="toggleTooltip(this)">
+                            <span class="border-b-2 border-green-500 text-green-700 font-bold px-0.5 hover:bg-green-50 transition">plato</span>
+                            <div class="tooltip hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-gray-900 text-amber-400 font-medium text-xs rounded-lg shadow-lg whitespace-nowrap z-20">
+                                plat / assiette
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                        </span> 
+                        del día? 
+                        <br>
+                        Hoy no tenemos 
+                        <span class="relative inline-block cursor-pointer word-trigger" onclick="toggleTooltip(this)">
+                            <span class="border-b-2 border-red-400 text-red-600 font-bold bg-red-50/50 px-0.5 transition">langosta</span>
+                            <div class="tooltip hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-gray-900 text-amber-400 font-medium text-xs rounded-lg shadow-lg whitespace-nowrap z-20">
+                                langouste
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                        </span>.
+                    </div>
+                    
+                    <button onclick="speakText('Claro. Aquí tienes la carta. ¿Te apetece probar nuestro plato del día? Hoy no tenemos langosta.')" class="self-start text-xs text-red-600 font-medium flex items-center gap-1 hover:text-red-800 transition ml-1 cursor-pointer">
+                        <i class="fa-solid fa-volume-high"></i> Écouter
+                    </button>
+                </div>
+            </div>
+            <div class="h-16"></div>
+        </main>
+
+        <footer class="bg-white p-3 border-t border-red-100 flex items-center gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] relative z-10">
+            <button class="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 transition shrink-0"><i class="fa-solid fa-keyboard"></i></button>
+            <div class="flex-1 relative">
+                <input type="text" placeholder="Escribe tu respuesta..." class="w-full bg-gray-50 border border-gray-100 text-gray-800 rounded-full py-3 px-4 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition shadow-sm">
+            </div>
+            <button class="w-12 h-12 flex items-center justify-center rounded-full bg-gradient-to-br from-red-700 to-red-800 text-white shadow-lg hover:shadow-xl hover:scale-105 transition transform active:scale-95"><i class="fa-solid fa-microphone text-lg"></i></button>
+        </footer>
+    </div>
+
+    <script>
+        // --- GESTION INTELLIGENTE DES VOIX ---
+        let voices = [];
+
+        // Fonction pour charger les voix (Chrome a besoin d'attendre l'event)
+        function loadVoices() {
+            voices = window.speechSynthesis.getVoices();
+        }
+
+        // On charge les voix dès que possible
+        loadVoices();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Stop le son précédent
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                // 1. On cherche d'abord une voix spécifiquement Espagnole (es-ES ou es-MX)
+                // "Google Español" est souvent la meilleure sur Chrome/Android
+                let selectedVoice = voices.find(voice => voice.lang === 'es-ES' || voice.name.includes('Google español'));
+
+                // 2. Si on trouve pas "es-ES", on prend n'importe quelle voix qui commence par "es"
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(voice => voice.lang.startsWith('es'));
+                }
+
+                // 3. On applique la voix si on en a trouvé une
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                    // console.log("Voix utilisée :", selectedVoice.name); // Décommente pour voir la voix dans la console
+                } else {
+                    // Fallback : on force juste le code langue et on croise les doigts
+                    utterance.lang = 'es-ES';
+                }
+
+                utterance.rate = 0.9; 
+                utterance.pitch = 1;
+
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Audio non supporté");
+            }
+        }
+
+        // --- TOOLTIPS ---
+        function toggleTooltip(element) {
+            const tooltip = element.querySelector('.tooltip');
+            if (!tooltip.classList.contains('hidden')) {
+                tooltip.classList.add('hidden');
+                tooltip.classList.remove('tooltip-anim');
+                return;
+            }
+            document.querySelectorAll('.tooltip').forEach(t => {
+                t.classList.add('hidden');
+                t.classList.remove('tooltip-anim');
+            });
+            tooltip.classList.remove('hidden');
+            tooltip.classList.add('tooltip-anim');
+            setTimeout(() => {
+                tooltip.classList.add('hidden');
+                tooltip.classList.remove('tooltip-anim');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
