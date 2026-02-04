@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import { db } from '../firebase-config';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, writeBatch } from "firebase/firestore";
 import { useDictionary } from './useDictionary';
-import { generateTargetWords, sendChatMessage, analyzeSession } from '../services/aiService';
+import { generateTargetWords, sendChatMessage, analyzeSession, generateIntroMessage } from '../services/aiService';
 
 export function useChat() {
     const messages = ref([]);
@@ -17,18 +17,21 @@ export function useChat() {
         loading.value = true;
         const knownWords = await fetchDictionary(userId);
         
+        // A. Génération des mots
         targetWords.value = await generateTargetWords(topic, knownWords);
-        
-        const introMessage = `¡Hola! El tema es "${topic}". Intentaremos usar: ${targetWords.value.join(', ')}. ¿Listo?`;
         
         const messagesRef = collection(db, "users", userId, "conversations", chatId, "messages");
         const snapshot = await getDocs(messagesRef);
         
+        // B. SI NOUVELLE CONVERSATION -> L'IA GÉNÈRE L'INTRO AVEC LE GLOSSAIRE
         if (snapshot.empty) {
+            const introData = await generateIntroMessage(topic, targetWords.value);
+            
             await addDoc(messagesRef, {
                 role: 'ai',
-                text: introMessage,
-                glossary: { "tema": "sujet", "usar": "utiliser" },
+                text: introData.spanish,
+                // On s'assure que le glossaire est bien passé (le service renvoie {} si vide)
+                glossary: introData.glossary, 
                 createdAt: serverTimestamp()
             });
         }
@@ -41,36 +44,25 @@ export function useChat() {
 
         const messagesRef = collection(db, "users", userId, "conversations", chatId, "messages");
         
-        // A. Sauvegarde User
-        await addDoc(messagesRef, {
-            text: userText,
-            role: 'user',
-            createdAt: serverTimestamp()
-        });
+        await addDoc(messagesRef, { text: userText, role: 'user', createdAt: serverTimestamp() });
 
-        // B. Appel IA
         loading.value = true;
         
-        // --- C'EST ICI QU'ON CHANGE LA PERSONNALITÉ ---
         const systemContext = `
-            Tu es un ami espagnol. 
-            Ton but est de discuter simplement du sujet.
-            Mots cibles à utiliser si possible : ${targetWords.value.join(', ')}.
+            RÔLE : Coach espagnol.
+            Objectifs : Utiliser ${targetWords.value.join(', ')}.
             
-            CONSIGNES STRICTES :
-            1. FAIS COURT (1 ou 2 phrases maximum).
-            2. Utilise un langage simple, naturel et courant.
-            3. Ne répète jamais ce que dit l'utilisateur.
-            4. Relance la conversation avec une question simple.
-            5. Si l'utilisateur fait une faute, ignore-la dans la conversation, mais ajoute la correction entre parenthèses à la toute fin.
+            RÈGLES :
+            1. Utilise au moins 1 mot cible.
+            2. Pose une question ouverte.
+            3. GLOSSAIRE OBLIGATOIRE : Traduis CHAQUE MOT de ta réponse (même les simples comme "y", "es", "bien"). TOUT DOIT ÊTRE TRADUIT.
         `;
         
         const aiResponse = await sendChatMessage(messages.value, userText, systemContext);
         
         loading.value = false;
 
-        // C. Sauvegarde IA avec Glossaire
-        const textToSave = aiResponse.spanish || (typeof aiResponse === 'string' ? aiResponse : "...");
+        const textToSave = aiResponse.spanish || "...";
         const glossaryToSave = aiResponse.glossary || {};
 
         await addDoc(messagesRef, {
@@ -93,7 +85,6 @@ export function useChat() {
         });
 
         await processEndOfConversation(userId, wordsToUpdate);
-        
         messages.value = [];
         targetWords.value = [];
         loading.value = false;

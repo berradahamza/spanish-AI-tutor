@@ -27,7 +27,7 @@
         <div v-if="targetWords.length > 0" class="mt-2 pt-2 border-t border-red-700/50 overflow-x-auto no-scrollbar whitespace-nowrap">
             <span class="text-[10px] text-red-300 uppercase font-bold mr-2 tracking-wider">Objectifs :</span>
             <span v-for="word in targetWords" :key="word" 
-                  class="inline-block bg-red-900/40 text-red-100 text-xs px-2 py-0.5 rounded-md mr-1.5 border border-red-500/20">
+                  class="inline-block bg-green-600/20 text-green-100 text-xs px-2 py-0.5 rounded-md mr-1.5 border border-green-500/30">
               {{ word }}
             </span>
         </div>
@@ -68,7 +68,12 @@
                   
                   <span v-if="isWord(token)" 
                         @click.stop="handleWordClick(token, msg.glossary, $event)"
-                        class="cursor-pointer hover:bg-red-100 hover:text-red-800 rounded px-0.5 transition duration-150 border-b border-dashed border-gray-300 hover:border-red-400">
+                        :class="[
+                            'cursor-pointer px-0.5 transition duration-150 rounded',
+                            isTargetWord(token) 
+                                ? 'text-green-700 font-bold border-b-2 border-green-500 bg-green-50' 
+                                : 'border-b border-dashed border-gray-300 hover:bg-red-100 hover:text-red-800 hover:border-red-400'
+                        ]">
                     {{ token }}
                   </span>
                   
@@ -123,7 +128,6 @@ import { useRouter, useRoute } from 'vue-router';
 import { useUser } from '../composables/useUser';
 import { useChat } from '../composables/useChat';
 
-// 1. Outils
 const router = useRouter();
 const route = useRoute();
 const { user } = useUser();
@@ -138,43 +142,32 @@ const {
   resetConversation 
 } = useChat();
 
-// 2. État Local
 const currentTopic = ref('');
 const userInput = ref('');
 const chatContainer = ref(null);
 const tooltip = ref({ visible: false, x: 0, y: 0, word: '', translation: '' });
 
-// 3. Cycle de vie
 onMounted(() => {
   currentTopic.value = localStorage.getItem('currentScenario') || 'Général';
   
   watch(user, async (currentUser) => {
     if (currentUser) {
       const chatId = currentTopic.value.replace(/\s+/g, '_').toLowerCase();
-      
-      // Reset si demandé (bouton "Commencer" du Setup)
       if (route.query.new === 'true') {
         await resetConversation(currentUser.uid, chatId);
         router.replace({ query: null });
       }
-
-      // Brancher l'écouteur Firestore
       initChat(currentUser.uid, chatId);
-
-      // Lancer la session IA (si nouvelle)
       startSession(currentUser.uid, currentTopic.value, chatId);
     }
   }, { immediate: true });
 });
 
-// 4. Actions
 const handleSend = async () => {
   if (!userInput.value.trim() || !user.value) return;
-  
   const text = userInput.value;
   userInput.value = ''; 
   const chatId = currentTopic.value.replace(/\s+/g, '_').toLowerCase();
-  
   await sendMessage(user.value.uid, text, chatId);
   scrollToBottom();
 };
@@ -190,41 +183,52 @@ const finishConversation = async () => {
   }
 };
 
-// --- LOGIQUE INTERACTIVE (Magic Touch) ---
+// --- LOGIQUE INTERACTIVE ---
 
-// Découper le texte pour isoler les mots
 function splitText(text) {
   if (!text) return [];
-  // Regex : isole les mots (y compris avec accents espagnols)
   return text.split(/([a-zA-ZáéíóúñÁÉÍÓÚÑüÜ]+)/g).filter(t => t);
 }
 
-// Vérifier si un token est un mot
 function isWord(token) {
   return /^[a-zA-ZáéíóúñÁÉÍÓÚÑüÜ]+$/.test(token);
 }
 
-// Gérer le clic sur un mot
-function handleWordClick(word, glossary, event) {
-  // On cache le tooltip précédent
-  clearSelection();
+// AMÉLIORATION : Détection intelligente des mots cibles (insensible casse + accents + pluriels simples)
+function isTargetWord(token) {
+    if (!token || targetWords.value.length === 0) return false;
+    
+    // On nettoie le mot du chat (minuscule, sans accent)
+    const cleanToken = token.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-  // On cherche la traduction
+    return targetWords.value.some(target => {
+        // On nettoie le mot cible
+        const cleanTarget = target.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        
+        // 1. Match Exact
+        if (cleanToken === cleanTarget) return true;
+        
+        // 2. Match Pluriel (Si le token contient le mot cible, ex: "gatos" contient "gato")
+        if (cleanToken.includes(cleanTarget) && cleanToken.length <= cleanTarget.length + 2) return true;
+        
+        return false;
+    });
+}
+
+function handleWordClick(word, glossary, event) {
+  clearSelection();
   const cleanKey = word.toLowerCase().replace(/[.,!?;:]/g, "");
   let translation = "Traduction indisponible";
   
   if (glossary) {
-      // 1. Recherche exacte
       if (glossary[word]) translation = glossary[word];
       else if (glossary[cleanKey]) translation = glossary[cleanKey];
       else {
-          // 2. Recherche "fuzzy" (ex: "comes" -> "comer")
           const foundKey = Object.keys(glossary).find(k => k.toLowerCase().includes(cleanKey) || cleanKey.includes(k.toLowerCase()));
           if (foundKey) translation = glossary[foundKey];
       }
   }
 
-  // Positionnement du tooltip
   const rect = event.target.getBoundingClientRect();
   tooltip.value = {
     visible: true,
@@ -239,7 +243,6 @@ function clearSelection() {
   tooltip.value.visible = false;
 }
 
-// Utilitaires
 watch(messages, () => scrollToBottom(), { deep: true });
 
 function scrollToBottom() {
