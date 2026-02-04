@@ -35,10 +35,10 @@
           <div v-if="Object.keys(groupedWords).length === 0" class="text-center mt-10 text-gray-400">
             <i class="fa-regular fa-face-frown-open text-4xl mb-3"></i>
             <p>Aucun mot trouvé.</p>
+            <p class="text-xs mt-2">Clique sur les mots dans le chat pour les ajouter.</p>
           </div>
 
           <div v-for="(words, letter) in groupedWords" :key="letter">
-            
             <div class="flex items-center gap-3 mt-4 mb-3">
               <div class="w-10 h-10 organic-shape bg-red-100 flex items-center justify-center text-red-800 font-bold text-lg shadow-sm border border-red-200">
                 {{ letter }}
@@ -59,7 +59,6 @@
                 <i class="fa-solid fa-volume-high text-sm"></i>
               </button>
             </div>
-
           </div>
         </div>
 
@@ -72,44 +71,20 @@
 import { ref, computed } from 'vue';
 
 const search = ref('');
+const rawWords = ref([]); // Liste vide par défaut
 
-// Simulation données Firestore
-const rawWords = [
-    { es: "abogado", fr: "avocat", type: "nom" },
-    { es: "agua", fr: "eau", type: "nom" },
-    { es: "amar", fr: "aimer", type: "verbe" },
-    { es: "banco", fr: "banque / banc", type: "nom" },
-    { es: "beber", fr: "boire", type: "verbe" },
-    { es: "carta", fr: "menu / carte", type: "nom" },
-    { es: "casa", fr: "maison", type: "nom" },
-    { es: "comer", fr: "manger", type: "verbe" },
-    { es: "cuenta", fr: "addition", type: "nom" },
-    { es: "dormir", fr: "dormir", type: "verbe" },
-    { es: "gato", fr: "chat", type: "nom" },
-    { es: "hola", fr: "bonjour", type: "expression" },
-    { es: "perro", fr: "chien", type: "nom" },
-    { es: "playa", fr: "plage", type: "nom" },
-    { es: "querer", fr: "vouloir", type: "verbe" },
-    { es: "restaurante", fr: "restaurant", type: "nom" },
-    { es: "sol", fr: "soleil", type: "nom" },
-    { es: "tener", fr: "avoir", type: "verbe" },
-    { es: "vivir", fr: "vivre", type: "verbe" },
-];
+// TODO: Ici on fera un appel à Firestore pour remplir rawWords
 
-// Logique de filtrage et groupement
 const groupedWords = computed(() => {
   const term = search.value.toLowerCase();
   
-  // 1. Filtrer
-  const filtered = rawWords.filter(w => 
+  const filtered = rawWords.value.filter(w => 
     w.es.toLowerCase().includes(term) || 
     w.fr.toLowerCase().includes(term)
   );
 
-  // 2. Trier
   filtered.sort((a, b) => a.es.localeCompare(b.es));
 
-  // 3. Grouper par lettre
   const groups = {};
   filtered.forEach(word => {
     const letter = word.es.charAt(0).toUpperCase();
@@ -128,7 +103,6 @@ const filteredCount = computed(() => {
   return count;
 });
 
-// Audio
 function speak(text) {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();

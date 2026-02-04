@@ -76,7 +76,7 @@ function startConversation() {
   }
   // On sauvegarde le sujet pour la page Chat
   localStorage.setItem('currentScenario', scenario.value);
-  router.push('/chat');
+  router.push('/chat?new=true');
 }
 </script>
 

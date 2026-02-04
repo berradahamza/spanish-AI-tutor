@@ -10,10 +10,18 @@
           <div class="h-full bg-green-500 rounded-full transition-all duration-500 ease-out" 
                :style="{ width: progressPercent + '%' }"></div>
         </div>
-        <div class="text-green-600 font-bold text-sm">{{ currentIndex + 1 }}/{{ exercises.length }}</div>
+        <div class="text-green-600 font-bold text-sm">{{ currentIndex + 1 }}/{{ exercises.length || 0 }}</div>
       </header>
 
-      <main class="flex-1 flex flex-col justify-center px-6 pb-20 relative z-0 sagrada-light-bg">
+      <main v-if="exercises.length === 0" class="flex-1 flex flex-col items-center justify-center p-6 sagrada-light-bg text-center text-gray-500">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <i class="fa-solid fa-dumbbell text-gray-300 text-2xl"></i>
+        </div>
+        <p>Pas de révisions pour le moment.</p>
+        <p class="text-sm mt-2">Va discuter dans le chat pour générer des exercices !</p>
+      </main>
+
+      <main v-else class="flex-1 flex flex-col justify-center px-6 pb-20 relative z-0 sagrada-light-bg">
         <h2 class="text-xl font-bold text-gray-800 mb-8 leading-tight">
           Traduisez cette phrase en espagnol
         </h2>
@@ -45,14 +53,15 @@
         </div>
       </main>
 
-      <footer class="p-4 border-t border-gray-100 bg-white z-10">
+      <footer v-if="exercises.length > 0" class="p-4 border-t border-gray-100 bg-white z-10">
         <button @click="checkAnswer" v-if="!feedback.visible"
             class="w-full bg-green-500 hover:bg-green-600 text-white font-bold text-lg py-3.5 rounded-2xl shadow-md transform active:scale-[0.98] transition border-b-4 border-green-700 active:border-b-0 active:translate-y-1">
           VÉRIFIER
         </button>
       </footer>
 
-      <div class="absolute bottom-0 left-0 w-full p-6 pb-8 rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50 transition-transform duration-300"
+      <div v-if="exercises.length > 0" 
+           class="absolute bottom-0 left-0 w-full p-6 pb-8 rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50 transition-transform duration-300"
            :class="[
              feedback.visible ? 'translate-y-0' : 'translate-y-full',
              feedback.isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -93,14 +102,14 @@ const userInput = ref("");
 const isListening = ref(false);
 const feedback = ref({ visible: false, isCorrect: false });
 
-const exercises = [
-    { fr: "Je voudrais une table pour deux.", es: "Quisiera una mesa para dos", accepted: ["quisiera una mesa para dos", "me gustaría una mesa para dos"] },
-    { fr: "Où sont les toilettes ?", es: "Donde estan los baños", accepted: ["donde estan los baños", "¿dónde están los baños?", "donde estan los servicios"] },
-    { fr: "L'addition, s'il vous plaît.", es: "La cuenta, por favor", accepted: ["la cuenta por favor", "la cuenta, por favor"] },
-];
+const exercises = ref([]); // Vide par défaut
 
-const currentEx = computed(() => exercises[currentIndex.value]);
-const progressPercent = computed(() => ((currentIndex.value) / exercises.length) * 100);
+// Pour éviter les erreurs si le tableau est vide
+const currentEx = computed(() => exercises.value[currentIndex.value] || {});
+const progressPercent = computed(() => {
+    if (exercises.value.length === 0) return 0;
+    return ((currentIndex.value) / exercises.value.length) * 100;
+});
 
 let recognition = null;
 if ('webkitSpeechRecognition' in window) {
@@ -134,7 +143,7 @@ function checkAnswer() {
 function nextExercise() {
     feedback.value.visible = false;
     userInput.value = "";
-    if (currentIndex.value < exercises.length - 1) {
+    if (currentIndex.value < exercises.value.length - 1) {
         currentIndex.value++;
     } else {
         alert("Bravo ! Session terminée.");
