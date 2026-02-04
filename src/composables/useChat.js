@@ -28,14 +28,14 @@ export function useChat() {
             await addDoc(messagesRef, {
                 role: 'ai',
                 text: introMessage,
-                glossary: { "tema": "sujet", "usar": "utiliser" }, // Petit glossaire manuel pour l'intro
+                glossary: { "tema": "sujet", "usar": "utiliser" },
                 createdAt: serverTimestamp()
             });
         }
         loading.value = false;
     };
 
-    // 2. Envoi Message (Version JSON)
+    // 2. Envoi Message
     const sendMessage = async (userId, userText, chatId) => {
         if (!userText.trim()) return;
 
@@ -50,16 +50,27 @@ export function useChat() {
 
         // B. Appel IA
         loading.value = true;
-        const systemContext = `Prof espagnol. Cibles: ${targetWords.value.join(', ')}. Corrige erreurs.`;
         
-        // On récupère l'objet { spanish, glossary }
+        // --- C'EST ICI QU'ON CHANGE LA PERSONNALITÉ ---
+        const systemContext = `
+            Tu es un ami espagnol. 
+            Ton but est de discuter simplement du sujet.
+            Mots cibles à utiliser si possible : ${targetWords.value.join(', ')}.
+            
+            CONSIGNES STRICTES :
+            1. FAIS COURT (1 ou 2 phrases maximum).
+            2. Utilise un langage simple, naturel et courant.
+            3. Ne répète jamais ce que dit l'utilisateur.
+            4. Relance la conversation avec une question simple.
+            5. Si l'utilisateur fait une faute, ignore-la dans la conversation, mais ajoute la correction entre parenthèses à la toute fin.
+        `;
+        
         const aiResponse = await sendChatMessage(messages.value, userText, systemContext);
         
         loading.value = false;
 
         // C. Sauvegarde IA avec Glossaire
-        // Sécurité : on vérifie si aiResponse est bien un objet ou juste du texte (au cas où)
-        const textToSave = aiResponse.spanish || (typeof aiResponse === 'string' ? aiResponse : "Error");
+        const textToSave = aiResponse.spanish || (typeof aiResponse === 'string' ? aiResponse : "...");
         const glossaryToSave = aiResponse.glossary || {};
 
         await addDoc(messagesRef, {
@@ -70,7 +81,7 @@ export function useChat() {
         });
     };
 
-    // 3. Fin (Inchangé)
+    // 3. Fin Session
     const endSession = async (userId) => {
         loading.value = true;
         const analysis = await analyzeSession(messages.value, targetWords.value);
