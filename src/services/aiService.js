@@ -7,11 +7,10 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true 
 });
 
-// Nettoyage robuste (gère le Markdown ```json que GPT ajoute parfois)
+// Nettoyage robuste
 const cleanJSON = (text) => {
     if (!text) return null;
     try {
-        // On enlève les balises de code éventuelles
         const cleanText = text.replace(/```json|```/g, '').trim();
         return JSON.parse(cleanText);
     } catch (e) {
@@ -19,7 +18,7 @@ const cleanJSON = (text) => {
     }
 };
 
-// 1. Initialisation (Mots cibles 100% Espagnol)
+// 1. Initialisation (Inchangé)
 export const generateTargetWords = async (topic, knownWords) => {
     try {
         const response = await openai.chat.completions.create({
@@ -43,7 +42,7 @@ export const generateTargetWords = async (topic, knownWords) => {
     }
 };
 
-// 2. GÉNÉRATION INTRO (Correction du bug de traduction)
+// 2. GÉNÉRATION INTRO (Inchangé)
 export const generateIntroMessage = async (topic, targetWords) => {
     try {
         const response = await openai.chat.completions.create({
@@ -80,7 +79,6 @@ export const generateIntroMessage = async (topic, targetWords) => {
         const content = response.choices[0].message.content;
         const data = cleanJSON(content);
 
-        // Sécurité : Si le JSON est cassé ou le glossaire manquant, on renvoie un truc propre
         return {
             spanish: data?.spanish || `¡Hola! Hablemos de ${topic}.`,
             glossary: data?.glossary || {} 
@@ -92,7 +90,7 @@ export const generateIntroMessage = async (topic, targetWords) => {
     }
 };
 
-// 3. CHAT (Inchangé mais avec le cleanJSON robuste)
+// 3. CHAT (Inchangé)
 export const sendChatMessage = async (history, userMessage, systemContext) => {
     try {
         let openAIHistory = history.map(msg => ({
@@ -141,5 +139,105 @@ export const analyzeSession = async (messages, targetWords) => {
         return cleanJSON(response.choices[0].message.content) || { userValidWords: [], targetWordsLearned: [] };
     } catch (e) {
         return { userValidWords: [], targetWordsLearned: [] };
+    }
+};
+
+// 5. RÉVISION : Générer des exercices (Inchangé)
+export const generateRevisionExercises = async (userWords) => {
+    try {
+        const wordsToPractice = userWords.sort(() => 0.5 - Math.random()).slice(0, 10);
+        const wordsString = wordsToPractice.length > 0 ? JSON.stringify(wordsToPractice) : '["gato", "amigo", "fiesta"]';
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [
+                {
+                    role: "system",
+                    content: `
+                    Tu es un professeur d'espagnol.
+                    L'élève connait ces mots en espagnol : ${wordsString}.
+                    
+                    Tâche : Crée 5 exercices de traduction (Français -> Espagnol).
+                    Pour chaque exercice :
+                    1. Écris une phrase TRÈS SIMPLE en Français (niveau enfant/débutant).
+                    2. Cette phrase doit nécessiter l'utilisation d'un des mots connus pour être traduite.
+                    3. Donne la traduction correcte attendue en Espagnol.
+                    
+                    Format JSON attendu :
+                    {
+                        "exercises": [
+                            {
+                                "french": "Le chat mange.",
+                                "spanish": "El gato come.",
+                                "targetWord": "gato"
+                            }
+                        ]
+                    }
+                    `
+                }
+            ]
+        });
+
+        const data = JSON.parse(response.choices[0].message.content);
+        return data.exercises || [];
+    } catch (e) {
+        console.error("Erreur Révision:", e);
+        return [];
+    }
+};
+
+// 6. LE JUGE IA (Version TOLÉRANCE EXTRÊME)
+export const verifyRevisionAnswer = async (userAnswer, expectedSpanish, frenchOriginal) => {
+    try {
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [
+                {
+                    role: "system",
+                    content: `
+                    Tu es un correcteur d'espagnol extrêmement cool et tolérant.
+                    
+                    CONTEXTE :
+                    - Phrase en français : "${frenchOriginal}"
+                    - Réponse attendue : "${expectedSpanish}"
+                    - Réponse de l'élève : "${userAnswer}"
+                    
+                    TES ORDRES ABSOLUS :
+                    1. **SI LES MOTS SONT BONS, C'EST GAGNÉ (isCorrect: true)**.
+                    
+                    2. **LES ACCENTS NE COMPTENT PAS COMME UNE FAUTE** : 
+                       - Si l'élève écrit "tu" au lieu de "tú" -> TU DOIS METTRE **isCorrect: true**.
+                       - Si l'élève écrit "esta" au lieu de "está" -> TU DOIS METTRE **isCorrect: true**.
+                       - Dans ce cas, ton feedback doit être positif : "Bravo ! (Attention juste à l'accent sur 'tú')".
+                    
+                    3. **LES MAJUSCULES NE COMPTENT PAS**. Ignore-les complètement.
+                    
+                    4. **REFUSE (isCorrect: false) UNIQUEMENT SI** :
+                       - L'élève utilise le mauvais mot (ex: "Chien" au lieu de "Chat").
+                       - L'orthographe est tellement mauvaise qu'on ne reconnaît pas le mot.
+                       - La phrase n'a pas de sens.
+
+                    Format JSON attendu :
+                    {
+                        "isCorrect": boolean,
+                        "feedback": "Ton commentaire (Sois positif si c'est juste un accent !)"
+                    }
+                    `
+                }
+            ]
+        });
+
+        const data = JSON.parse(response.choices[0].message.content);
+        return data || { isCorrect: false, feedback: "Erreur d'analyse." };
+
+    } catch (e) {
+        console.error("Erreur Vérification:", e);
+        const normalize = str => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        return { 
+            isCorrect: normalize(userAnswer) === normalize(expectedSpanish), 
+            feedback: "Vérification hors ligne (tolérante)." 
+        };
     }
 };

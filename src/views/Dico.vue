@@ -35,7 +35,7 @@
           <div v-if="Object.keys(groupedWords).length === 0" class="text-center mt-10 text-gray-400">
             <i class="fa-regular fa-face-frown-open text-4xl mb-3"></i>
             <p>Aucun mot trouvé.</p>
-            <p class="text-xs mt-2">Clique sur les mots dans le chat pour les ajouter.</p>
+            <p class="text-xs mt-2">Termine une conversation pour remplir ton dictionnaire !</p>
           </div>
 
           <div v-for="(words, letter) in groupedWords" :key="letter">
@@ -51,7 +51,7 @@
               <div>
                 <div class="flex items-center gap-2">
                   <span class="text-gray-800 font-bold text-lg capitalize">{{ word.es }}</span>
-                  <span class="text-[10px] uppercase font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded tracking-wider">{{ word.type }}</span>
+                  <span v-if="word.type" class="text-[10px] uppercase font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded tracking-wider">{{ word.type }}</span>
                 </div>
                 <p class="text-gray-500 text-sm italic">{{ word.fr }}</p>
               </div>
@@ -68,26 +68,45 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useUser } from '../composables/useUser';
+import { useDictionary } from '../composables/useDictionary';
+
+const { user } = useUser();
+// On récupère dictionaryList (la liste réactive) et la fonction d'écoute
+const { dictionaryList, listenToDictionary } = useDictionary();
 
 const search = ref('');
-const rawWords = ref([]); // Liste vide par défaut
 
-// TODO: Ici on fera un appel à Firestore pour remplir rawWords
+// Dès que le composant est monté ou que l'utilisateur change, on lance l'écoute
+onMounted(() => {
+  if (user.value) {
+    listenToDictionary(user.value.uid);
+  }
+});
 
+watch(user, (newUser) => {
+  if (newUser) {
+    listenToDictionary(newUser.uid);
+  }
+});
+
+// Calcul des groupes (A, B, C...) basé sur la liste Firebase
 const groupedWords = computed(() => {
   const term = search.value.toLowerCase();
   
-  const filtered = rawWords.value.filter(w => 
-    w.es.toLowerCase().includes(term) || 
-    w.fr.toLowerCase().includes(term)
+  // On filtre dictionaryList au lieu de rawWords
+  const filtered = dictionaryList.value.filter(w => 
+    (w.es && w.es.toLowerCase().includes(term)) || 
+    (w.fr && w.fr.toLowerCase().includes(term))
   );
 
   filtered.sort((a, b) => a.es.localeCompare(b.es));
 
   const groups = {};
   filtered.forEach(word => {
-    const letter = word.es.charAt(0).toUpperCase();
+    // Sécurité si word.es est vide
+    const letter = (word.es || '?').charAt(0).toUpperCase();
     if (!groups[letter]) groups[letter] = [];
     groups[letter].push(word);
   });

@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import { db } from '../firebase-config';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, writeBatch } from "firebase/firestore";
 import { useDictionary } from './useDictionary';
-import { generateTargetWords, sendChatMessage, analyzeSession, generateIntroMessage } from '../services/aiService';
+import { generateTargetWords, sendChatMessage, generateIntroMessage } from '../services/aiService';
 
 export function useChat() {
     const messages = ref([]);
@@ -17,20 +17,17 @@ export function useChat() {
         loading.value = true;
         const knownWords = await fetchDictionary(userId);
         
-        // A. Génération des mots
         targetWords.value = await generateTargetWords(topic, knownWords);
         
         const messagesRef = collection(db, "users", userId, "conversations", chatId, "messages");
         const snapshot = await getDocs(messagesRef);
         
-        // B. SI NOUVELLE CONVERSATION -> L'IA GÉNÈRE L'INTRO AVEC LE GLOSSAIRE
         if (snapshot.empty) {
             const introData = await generateIntroMessage(topic, targetWords.value);
             
             await addDoc(messagesRef, {
                 role: 'ai',
                 text: introData.spanish,
-                // On s'assure que le glossaire est bien passé (le service renvoie {} si vide)
                 glossary: introData.glossary, 
                 createdAt: serverTimestamp()
             });
@@ -73,18 +70,37 @@ export function useChat() {
         });
     };
 
-    // 3. Fin Session
+    // 3. Fin Session (CORRIGÉ : Récupération des traductions)
     const endSession = async (userId) => {
         loading.value = true;
-        const analysis = await analyzeSession(messages.value, targetWords.value);
         
-        const wordsToUpdate = [];
-        analysis.userValidWords.forEach(w => wordsToUpdate.push({ word: w, isNew: false }));
-        analysis.targetWordsLearned.forEach(w => {
-            if (!wordsToUpdate.find(i => i.word === w)) wordsToUpdate.push({ word: w, isNew: true });
+        // A. On construit un "Dictionnaire de la session" en fusionnant tous les glossaires reçus
+        const sessionGlossary = {};
+        messages.value.forEach(msg => {
+            if (msg.role === 'ai' && msg.glossary) {
+                // On met tout en minuscule pour faciliter la recherche
+                Object.keys(msg.glossary).forEach(key => {
+                    sessionGlossary[key.toLowerCase()] = msg.glossary[key];
+                });
+            }
         });
 
+        // B. On prépare les mots à sauvegarder AVEC leur traduction trouvée
+        const wordsToUpdate = targetWords.value.map(word => {
+            const cleanWord = word.toLowerCase();
+            // On cherche la trad, ou on met une valeur par défaut
+            const translation = sessionGlossary[cleanWord] || "Traduction à vérifier";
+            
+            return {
+                word: word,          // ex: "Gato"
+                translation: translation, // ex: "Chat"
+                isNew: true 
+            };
+        });
+
+        // C. On sauvegarde dans Firebase
         await processEndOfConversation(userId, wordsToUpdate);
+        
         messages.value = [];
         targetWords.value = [];
         loading.value = false;

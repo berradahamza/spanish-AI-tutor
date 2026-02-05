@@ -1,168 +1,152 @@
 <template>
   <div class="bg-orange-50 h-screen flex justify-center overflow-hidden font-sans">
-    <div class="w-full max-w-md h-full bg-white flex flex-col shadow-xl relative overflow-hidden">
-
-      <header class="p-4 pt-6 flex items-center gap-4 bg-white z-10 border-b border-gray-50">
-        <router-link to="/" class="text-gray-400 hover:text-gray-600 transition">
-          <i class="fa-solid fa-xmark text-2xl"></i>
-        </router-link>
-        <div class="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-          <div class="h-full bg-green-500 rounded-full transition-all duration-500 ease-out" 
-               :style="{ width: progressPercent + '%' }"></div>
+    <div class="w-full max-w-md h-full bg-white flex flex-col shadow-xl relative">
+      
+      <header class="bg-red-800 sagrada-header-texture text-white p-4 shadow-md z-20 relative">
+        <div class="flex items-center gap-3">
+          <router-link to="/" class="hover:bg-red-700 p-2 rounded-full transition">
+            <i class="fa-solid fa-arrow-left"></i>
+          </router-link>
+          <div>
+            <h1 class="font-bold text-lg tracking-wide">Révisions</h1>
+            <p class="text-xs text-red-200" v-if="exercises.length > 0">
+                Question {{ currentIndex + 1 }} / {{ exercises.length }}
+            </p>
+          </div>
         </div>
-        <div class="text-green-600 font-bold text-sm">{{ currentIndex + 1 }}/{{ exercises.length || 0 }}</div>
       </header>
 
-      <main v-if="exercises.length === 0" class="flex-1 flex flex-col items-center justify-center p-6 sagrada-light-bg text-center text-gray-500">
-        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <i class="fa-solid fa-dumbbell text-gray-300 text-2xl"></i>
-        </div>
-        <p>Pas de révisions pour le moment.</p>
-        <p class="text-sm mt-2">Va discuter dans le chat pour générer des exercices !</p>
-      </main>
-
-      <main v-else class="flex-1 flex flex-col justify-center px-6 pb-20 relative z-0 sagrada-light-bg">
-        <h2 class="text-xl font-bold text-gray-800 mb-8 leading-tight">
-          Traduisez cette phrase en espagnol
-        </h2>
-
-        <div class="flex items-start gap-3 mb-8">
-          <div class="w-10 h-10 bg-red-100 rounded-2xl rounded-tr-sm flex items-center justify-center border-2 border-red-200 shrink-0 shadow-sm">
-            <i class="fa-solid fa-robot text-red-600 text-lg"></i>
-          </div>
-          <div class="bg-white border-2 border-gray-100 p-4 rounded-2xl rounded-tl-sm shadow-sm relative flex-1">
-            <div class="absolute top-4 -left-2 w-4 h-4 bg-white border-l-2 border-b-2 border-gray-100 transform rotate-45"></div>
-            <p class="text-lg text-gray-700 font-medium leading-relaxed">{{ currentEx.fr }}</p>
-            <button @click="speak(currentEx.fr, 'fr-FR')" class="mt-2 text-red-400 hover:text-red-600 text-xs font-bold uppercase tracking-wide flex items-center gap-1">
-              <i class="fa-solid fa-volume-high"></i> Écouter
-            </button>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <textarea v-model="userInput" rows="3" 
-              class="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 text-lg text-gray-800 placeholder-gray-300 focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition resize-none shadow-sm"
-              placeholder="Écrivez ou parlez..."></textarea>
-          
-          <div class="flex justify-end">
-            <button @click="toggleListening" :class="{'ring-4 ring-red-200 border-red-500 text-red-500': isListening}"
-                class="w-12 h-12 rounded-full bg-white border-2 border-gray-200 text-gray-400 shadow-sm flex items-center justify-center text-lg hover:border-red-400 hover:text-red-500 transition active:scale-95">
-              <i class="fa-solid fa-microphone"></i>
-            </button>
-          </div>
-        </div>
-      </main>
-
-      <footer v-if="exercises.length > 0" class="p-4 border-t border-gray-100 bg-white z-10">
-        <button @click="checkAnswer" v-if="!feedback.visible"
-            class="w-full bg-green-500 hover:bg-green-600 text-white font-bold text-lg py-3.5 rounded-2xl shadow-md transform active:scale-[0.98] transition border-b-4 border-green-700 active:border-b-0 active:translate-y-1">
-          VÉRIFIER
-        </button>
-      </footer>
-
-      <div v-if="exercises.length > 0" 
-           class="absolute bottom-0 left-0 w-full p-6 pb-8 rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50 transition-transform duration-300"
-           :class="[
-             feedback.visible ? 'translate-y-0' : 'translate-y-full',
-             feedback.isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-           ]">
+      <main class="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center relative sagrada-light-bg">
         
-        <div class="w-full">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center bg-white shadow-sm">
-               <i :class="['fa-solid text-xl', feedback.isCorrect ? 'fa-check text-green-500' : 'fa-xmark text-red-500']"></i>
-            </div>
-            <h3 class="font-bold text-xl">{{ feedback.isCorrect ? 'Excellent !' : 'Oups...' }}</h3>
-          </div>
-
-          <div class="mb-6 pl-1">
-            <p class="text-sm font-medium opacity-90" v-if="!feedback.isCorrect">La bonne réponse était :</p>
-            <p class="text-lg font-bold mt-1" v-if="!feedback.isCorrect">{{ currentEx.es }}</p>
-          </div>
-
-          <button @click="nextExercise"
-              class="w-full font-bold text-lg py-3.5 rounded-2xl shadow-sm border-b-4 transform active:scale-[0.98] transition active:border-b-0 active:translate-y-1"
-              :class="feedback.isCorrect ? 'bg-green-500 text-white border-green-700 hover:bg-green-600' : 'bg-red-500 text-white border-red-700 hover:bg-red-600'">
-            CONTINUER
-          </button>
+        <div v-if="loading" class="text-center">
+            <i class="fa-solid fa-brain fa-spin text-4xl text-red-600 mb-4"></i>
+            <p class="text-gray-600 font-medium animate-pulse">L'IA prépare tes phrases...</p>
         </div>
-      </div>
 
+        <div v-else-if="errorState === 'PAS_ASSEZ_DE_MOTS'" class="text-center px-4">
+            <i class="fa-solid fa-book-open text-4xl text-gray-300 mb-3"></i>
+            <h3 class="font-bold text-gray-700 mb-2">Dictionnaire trop vide</h3>
+            <p class="text-gray-500 text-sm mb-6">Apprends encore quelques mots avec le tuteur !</p>
+            <router-link to="/" class="bg-red-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-700 transition">
+                Retour
+            </router-link>
+        </div>
+
+        <div v-else-if="completed" class="text-center animate-fade-in w-full">
+            <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 text-4xl shadow-sm">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Terminé !</h2>
+            <p class="text-gray-500 mb-6">Score : <strong class="text-red-600 text-xl">{{ score }} / {{ exercises.length }}</strong></p>
+            <button @click="init" class="w-full bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg hover:scale-[1.02] transition">
+                Recommencer
+            </button>
+        </div>
+
+        <div v-else-if="currentExercise" class="w-full max-w-sm animate-fade-in">
+            
+            <div class="bg-white p-6 rounded-3xl shadow-lg border border-red-50 text-center mb-8 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-400 to-amber-400"></div>
+                <p class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2">Traduire en Espagnol</p>
+                <h2 class="text-2xl font-bold text-gray-800 leading-relaxed">
+                    "{{ currentExercise.french }}"
+                </h2>
+            </div>
+
+            <div v-if="!resultMessage" class="space-y-4">
+                <input 
+                    v-model="userAnswer" 
+                    @keyup.enter="validate"
+                    type="text" 
+                    placeholder="Écris en espagnol..." 
+                    :disabled="isChecking"
+                    class="w-full bg-white border-2 border-gray-100 text-gray-800 rounded-2xl py-4 px-5 text-lg text-center focus:outline-none focus:border-red-400 focus:ring-4 focus:ring-red-500/10 transition shadow-inner placeholder-gray-300 disabled:opacity-50"
+                    autofocus
+                >
+                <button 
+                    @click="validate" 
+                    :disabled="!userAnswer.trim() || isChecking"
+                    class="w-full bg-red-600 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-red-200 hover:bg-red-700 active:scale-95 transition disabled:opacity-70 disabled:shadow-none flex items-center justify-center gap-2">
+                    <span v-if="isChecking"><i class="fa-solid fa-circle-notch fa-spin"></i> Correction...</span>
+                    <span v-else>Valider</span>
+                </button>
+            </div>
+
+            <div v-else class="text-center animate-fade-in">
+                <div :class="['p-4 rounded-2xl mb-6 border-2', resultMessage.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800']">
+                    <i :class="['fa-solid text-2xl mb-2', resultMessage.type === 'success' ? 'fa-circle-check' : 'fa-circle-xmark']"></i>
+                    
+                    <p class="font-bold text-lg">{{ resultMessage.text }}</p>
+                    
+                    <p v-if="resultMessage.correction" class="text-sm mt-2 font-medium bg-white/50 py-1 px-3 rounded-lg inline-block">
+                        Réponse : {{ resultMessage.correction }}
+                    </p>
+                </div>
+                
+                <button @click="next" class="w-full bg-gray-900 text-white py-3.5 rounded-2xl font-bold hover:bg-gray-800 transition shadow-lg">
+                    Question suivante <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+
+        </div>
+
+      </main>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted } from 'vue';
+import { useUser } from '../composables/useUser';
+import { useRevision } from '../composables/useRevision';
 
-const router = useRouter();
-const currentIndex = ref(0);
-const userInput = ref("");
-const isListening = ref(false);
-const feedback = ref({ visible: false, isCorrect: false });
+const { user } = useUser();
+const { 
+    exercises, 
+    currentIndex, 
+    loading, 
+    isChecking, // On récupère l'état de chargement
+    completed, 
+    score, 
+    resultMessage,
+    startRevision, 
+    checkAnswer, 
+    nextQuestion 
+} = useRevision();
 
-const exercises = ref([]); // Vide par défaut
+const userAnswer = ref('');
+const errorState = ref(null);
 
-// Pour éviter les erreurs si le tableau est vide
-const currentEx = computed(() => exercises.value[currentIndex.value] || {});
-const progressPercent = computed(() => {
-    if (exercises.value.length === 0) return 0;
-    return ((currentIndex.value) / exercises.value.length) * 100;
+const currentExercise = computed(() => exercises.value[currentIndex.value]);
+
+const init = async () => {
+    if (user.value) {
+        errorState.value = null;
+        const res = await startRevision(user.value.uid);
+        if (res !== "OK") errorState.value = res;
+    }
+};
+
+onMounted(() => {
+    setTimeout(() => {
+        if(user.value) init();
+    }, 500);
 });
 
-let recognition = null;
-if ('webkitSpeechRecognition' in window) {
-    recognition = new window.webkitSpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = 'es-ES';
-    recognition.onresult = (event) => {
-        userInput.value = event.results[0][0].transcript;
-        isListening.value = false;
-    };
-    recognition.onend = () => isListening.value = false;
-}
+const validate = async () => {
+    if (!userAnswer.value.trim() || isChecking.value) return;
+    await checkAnswer(userAnswer.value); // On attend la réponse de l'IA
+};
 
-function toggleListening() {
-    if (!recognition) return alert("Micro non supporté (essayez Chrome)");
-    if (isListening.value) recognition.stop();
-    else recognition.start();
-    isListening.value = !isListening.value;
-}
-
-function checkAnswer() {
-    const cleanUser = userInput.value.trim().toLowerCase().replace(/[.,¡!¿?]/g, "");
-    const isCorrect = currentEx.value.accepted.some(ans => {
-        return cleanUser === ans.replace(/[.,¡!¿?]/g, "").toLowerCase();
-    });
-    
-    feedback.value = { visible: true, isCorrect };
-    if (!isCorrect) speak(currentEx.value.es, 'es-ES');
-}
-
-function nextExercise() {
-    feedback.value.visible = false;
-    userInput.value = "";
-    if (currentIndex.value < exercises.value.length - 1) {
-        currentIndex.value++;
-    } else {
-        alert("Bravo ! Session terminée.");
-        router.push('/');
-    }
-}
-
-function speak(text, lang) {
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = lang;
-        window.speechSynthesis.speak(utterance);
-    }
-}
+const next = () => {
+    userAnswer.value = '';
+    nextQuestion();
+};
 </script>
 
 <style scoped>
-.sagrada-light-bg { background-color: #fffbf5; background-image: radial-gradient(at 20% 30%, hsla(45, 100%, 85%, 0.4) 0px, transparent 50%), radial-gradient(at 50% 80%, hsla(10, 100%, 90%, 0.4) 0px, transparent 50%); background-attachment: fixed; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.sagrada-light-bg { background-color: #fffbf5; background-image: radial-gradient(at 20% 30%, hsla(45, 100%, 85%, 0.4) 0px, transparent 50%), radial-gradient(at 50% 80%, hsla(10, 100%, 90%, 0.4) 0px, transparent 50%); }
+.sagrada-header-texture { background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.07' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E"); }
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
