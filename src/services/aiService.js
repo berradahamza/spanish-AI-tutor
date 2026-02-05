@@ -42,7 +42,7 @@ export const generateTargetWords = async (topic, knownWords) => {
     }
 };
 
-// 2. GÉNÉRATION INTRO
+// 2. GÉNÉRATION INTRO (MISE À JOUR : GLOSSAIRE TOTAL)
 export const generateIntroMessage = async (topic, targetWords) => {
     try {
         const response = await openai.chat.completions.create({
@@ -60,13 +60,16 @@ export const generateIntroMessage = async (topic, targetWords) => {
                     1. Écris une phrase d'intro en espagnol qui utilise ces mots.
                     2. Pose une question ouverte.
                     
-                    🚨 GLOSSAIRE OBLIGATOIRE (CRITIQUE) :
-                    Tu dois remplir le champ "glossary" avec la traduction de **CHAQUE MOT** de ta phrase.
+                    🚨 GLOSSAIRE OBLIGATOIRE (TRADUCTION TOTALE) :
+                    Tu dois impérativement remplir le champ "glossary" avec la traduction de **CHAQUE MOT** de ta phrase.
+                    - Pas seulement les mots difficiles.
+                    - Traduis aussi les articles (el, la), les pronoms (yo, tu), les verbes (es, esta).
+                    - L'utilisateur est débutant absolu, il doit pouvoir cliquer sur n'importe quel mot.
                     
                     Format JSON :
                     {
                         "spanish": "Ta phrase d'intro...",
-                        "glossary": { "chaque_mot_espagnol": "traduction_fr" } 
+                        "glossary": { "mot_espagnol": "traduction_fr", "el": "le", "es": "est" } 
                     }
                     `
                 }
@@ -87,7 +90,7 @@ export const generateIntroMessage = async (topic, targetWords) => {
     }
 };
 
-// 3. CHAT
+// 3. CHAT (MISE À JOUR : RAPPEL FORMAT CORRECTION)
 export const sendChatMessage = async (history, userMessage, systemContext) => {
     try {
         let openAIHistory = history.map(msg => ({
@@ -107,7 +110,12 @@ export const sendChatMessage = async (history, userMessage, systemContext) => {
                     role: "system",
                     content: `
                     ${systemContext}
-                    FORMAT JSON : { "spanish": "...", "glossary": { "mot": "traduction" } }
+                    
+                    RAPPEL FORMAT JSON STRICT : 
+                    { 
+                        "spanish": "( correction : ... ) Ta réponse...", 
+                        "glossary": { "mot": "traduction" } 
+                    }
                     `
                 },
                 ...openAIHistory,
@@ -139,7 +147,7 @@ export const analyzeSession = async (messages, targetWords) => {
     }
 };
 
-// 5. RÉVISION : Générer des exercices (Inchangé)
+// 5. RÉVISION (Inchangé)
 export const generateRevisionExercises = async (userWords) => {
     try {
         const wordsToPractice = userWords.sort(() => 0.5 - Math.random()).slice(0, 10);
@@ -184,7 +192,7 @@ export const generateRevisionExercises = async (userWords) => {
     }
 };
 
-// 6. LE JUGE IA (Version TOLÉRANCE EXTRÊME)
+// 6. LE JUGE IA (Inchangé - Tolérant)
 export const verifyRevisionAnswer = async (userAnswer, expectedSpanish, frenchOriginal) => {
     try {
         const response = await openai.chat.completions.create({

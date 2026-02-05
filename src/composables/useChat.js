@@ -3,7 +3,7 @@ import { db } from '../firebase-config';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, writeBatch } from "firebase/firestore";
 import { useDictionary } from './useDictionary';
 import { generateTargetWords, sendChatMessage, generateIntroMessage } from '../services/aiService';
-// 1. On importe le User pour gérer le Streak
+// 1. On importe le User pour gérer le Streak (Préservé)
 import { useUser } from './useUser';
 
 export function useChat() {
@@ -13,10 +13,10 @@ export function useChat() {
     let unsubscribe = null;
     
     const { fetchDictionary, processEndOfConversation } = useDictionary();
-    // 2. On récupère la fonction d'incrémentation
+    // 2. On récupère la fonction d'incrémentation (Préservé)
     const { incrementStreak } = useUser();
 
-    // 1. Démarrage
+    // 1. Démarrage (Inchangé)
     const startSession = async (userId, topic, chatId) => {
         loading.value = true;
         const knownWords = await fetchDictionary(userId);
@@ -39,7 +39,7 @@ export function useChat() {
         loading.value = false;
     };
 
-    // 2. Envoi Message
+    // 2. Envoi Message (UPDATE DU PROMPT ICI UNIQUEMENT)
     const sendMessage = async (userId, userText, chatId) => {
         if (!userText.trim()) return;
 
@@ -49,19 +49,21 @@ export function useChat() {
 
         loading.value = true;
         
-        // --- PROMPT SYSTÈME "NUCLÉAIRE" (Tes 4 Règles Critiques) ---
+        // --- MISE A JOUR : TES 4 REGLES CRITIQUES ---
         const systemContext = `
-            RÔLE : Tu es le personnage du scénario en cours. Tu n'es pas une IA standard.
-            Objectifs lexicaux : ${targetWords.value.join(', ')}.
+            RÔLE : Tu es le personnage du scénario.
+            Objectifs : ${targetWords.value.join(', ')}.
             
-            RÈGLES CRITIQUES (A RESPECTER À LA LETTRE) :
-            1. 🎭 ROLEPLAY STRICT : Ne sors JAMAIS du roleplay. Reste dans le contexte.
-            2. ✍️ FORMAT CORRECTION : Si l'utilisateur fait une faute, ta réponse DOIT commencer par : "(Correction = [la correction]) " suivi de ta réponse. Si pas de faute, réponds direct.
-            3. 🚫 ANTI-PERROQUET : Ne répète JAMAIS ce que dit l'utilisateur. Fais avancer la conversation.
-            4. 💡 CRÉATIVITÉ : Si tu ne sais pas quoi dire, invente un détail ou pose une question liée au contexte.
+            ⚠️ RÈGLES CRITIQUES (IMPORTANCE MAXIMALE) ⚠️ :
+            1. 🎭 ROLEPLAY : Ne sors JAMAIS du roleplay ni du contexte donné par l'utilisateur. Tu es un personnage, pas une IA.
+            2. 🚫 ANTI-PERROQUET : Ne répète JAMAIS ce que l'utilisateur vient de dire. Fais avancer l'histoire.
+            3. ✍️ CORRECTION FORMELLE : Si l'utilisateur fait une erreur (orthographe, grammaire, mot), tu DOIS commencer ta réponse par :
+               ( correction : [la phrase corrigée] )
+               Ensuite seulement, tu mets ta réponse roleplay.
+            4. 💡 CRÉATIVITÉ : Si tu ne sais pas quoi dire, sois créatif, invente un détail du scénario.
             
-            🚨 GLOSSAIRE OBLIGATOIRE (DICTIONNAIRE TOTAL) :
-            Traduis **CHAQUE MOT** de ta réponse dans le JSON (verbes conjugués, noms, adjectifs, pronoms). Tout doit être cliquable.
+            🚨 GLOSSAIRE TOTAL :
+            Traduis CHAQUE MOT de ta réponse dans le JSON (y compris 'le', 'la', 'est', etc.).
         `;
         
         const aiResponse = await sendChatMessage(messages.value, userText, systemContext);
@@ -79,12 +81,11 @@ export function useChat() {
         });
     };
 
-    // 3. Fin Session (LOGIQUE PRESERVÉE + STREAK)
+    // 3. Fin Session (LOGIQUE PRÉSERVÉE : Traduction intelligente + Streak)
     const endSession = async (userId) => {
         loading.value = true;
         
-        // A. On construit le "Dictionnaire de session" pour retrouver les traductions manquantes
-        // (C'est ta logique que tu voulais absolument garder)
+        // A. On construit le "Dictionnaire de la session" (Ta logique préservée)
         const sessionGlossary = {};
         messages.value.forEach(msg => {
             if (msg.role === 'ai' && msg.glossary) {
@@ -94,24 +95,23 @@ export function useChat() {
             }
         });
 
-        // B. On prépare les mots avec leurs traductions
+        // B. On prépare les mots (Ta logique préservée)
         const wordsToUpdate = targetWords.value.map(word => {
             const cleanWord = word.toLowerCase();
             const translation = sessionGlossary[cleanWord] || "Traduction à vérifier";
-            
             return {
                 word: word,
-                translation: translation,
+                translation: translation, 
                 isNew: true 
             };
         });
 
-        // C. Sauvegarde Firebase
+        // C. On sauvegarde
         await processEndOfConversation(userId, wordsToUpdate);
         
-        // --- D. MISE A JOUR DU STREAK ---
-        await incrementStreak(); 
-        // --------------------------------
+        // --- D. STREAK (Ta nouveauté préservée) ---
+        await incrementStreak();
+        // ------------------------------------------
 
         messages.value = [];
         targetWords.value = [];
