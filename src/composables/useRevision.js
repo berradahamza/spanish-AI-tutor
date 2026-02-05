@@ -1,7 +1,8 @@
 import { ref } from 'vue';
 import { useDictionary } from './useDictionary';
-// On importe le juge IA
 import { generateRevisionExercises, verifyRevisionAnswer } from '../services/aiService';
+// 1. IMPORT DU USER POUR LE STREAK
+import { useUser } from './useUser';
 
 export function useRevision() {
     const exercises = ref([]);
@@ -10,11 +11,12 @@ export function useRevision() {
     const completed = ref(false);
     const score = ref(0);
     const resultMessage = ref(null);
-    
-    // NOUVEAU : État pour savoir si l'IA est en train de corriger
     const isChecking = ref(false);
 
     const { fetchDictionary } = useDictionary();
+    
+    // 2. RÉCUPÉRATION DE LA FONCTION STREAK
+    const { incrementStreak } = useUser();
 
     const startRevision = async (userId) => {
         loading.value = true;
@@ -36,14 +38,11 @@ export function useRevision() {
         return "OK";
     };
 
-    // MODIFIÉ : Vérification via l'IA
     const checkAnswer = async (userAnswer) => {
         const currentEx = exercises.value[currentIndex.value];
         if (!currentEx || !userAnswer.trim()) return;
 
-        isChecking.value = true; // On lance le chargement visuel
-
-        // Appel au Juge IA
+        isChecking.value = true;
         const result = await verifyRevisionAnswer(
             userAnswer, 
             currentEx.spanish, 
@@ -61,19 +60,25 @@ export function useRevision() {
             resultMessage.value = { 
                 type: 'error', 
                 text: result.feedback || 'Pas tout à fait...',
-                correction: currentEx.spanish // On montre la bonne réponse
+                correction: currentEx.spanish 
             };
         }
 
-        isChecking.value = false; // Fin du chargement
+        isChecking.value = false;
     };
 
-    const nextQuestion = () => {
+    // 3. QUESTION SUIVANTE (C'est ici qu'on valide le streak à la fin)
+    const nextQuestion = async () => {
         resultMessage.value = null;
         if (currentIndex.value < exercises.value.length - 1) {
             currentIndex.value++;
         } else {
+            // C'était la dernière question -> FINIE
             completed.value = true;
+            
+            // --- VALIDATION DU STREAK ---
+            await incrementStreak(); // On ajoute +1 au compteur
+            // ----------------------------
         }
     };
 
@@ -81,7 +86,7 @@ export function useRevision() {
         exercises, 
         currentIndex, 
         loading, 
-        isChecking, // On l'exporte pour l'utiliser dans la vue
+        isChecking, 
         completed, 
         score, 
         resultMessage,

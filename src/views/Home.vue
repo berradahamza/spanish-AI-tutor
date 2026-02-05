@@ -15,9 +15,15 @@
               <h1 class="font-bold text-2xl leading-none">{{ user?.displayName?.split(' ')[0] || 'Estudiante' }}</h1>
             </div>
           </div>
-          <div class="flex items-center gap-2 bg-red-900/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-red-500/30 shadow-sm">
-            <i class="fa-solid fa-fire text-amber-400 animate-pulse"></i>
-            <span class="font-bold text-sm">--</span>
+          
+          <div class="flex flex-col items-end gap-2">
+              <button @click="handleLogout" class="text-red-200 hover:text-white transition text-xs flex items-center gap-1">
+                  <i class="fa-solid fa-right-from-bracket"></i> Déco
+              </button>
+              <div class="flex items-center gap-2 bg-red-900/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-red-500/30 shadow-sm">
+                <i class="fa-solid fa-fire text-amber-400 animate-pulse"></i>
+                <span class="font-bold text-sm">{{ streak }} jours</span>
+              </div>
           </div>
         </div>
       </header>
@@ -50,24 +56,6 @@
             </router-link>
         </div>
 
-        <div class="bg-white/60 backdrop-blur-md p-5 rounded-3xl border border-white shadow-sm mt-4">
-          <h3 class="text-gray-800 font-bold mb-4 text-sm flex items-center gap-2">
-            <i class="fa-solid fa-sliders text-gray-400"></i> Préférences
-          </h3>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-gray-600 font-medium">Mots par jour</span>
-            <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
-              <button @click="updateDailyGoal(dailyCount - 1)" class="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 transition">
-                <i class="fa-solid fa-minus"></i>
-              </button>
-              <span class="font-bold text-gray-800 w-6 text-center text-sm">{{ dailyCount }}</span>
-              <button @click="updateDailyGoal(dailyCount + 1)" class="w-8 h-8 flex items-center justify-center rounded-lg text-green-500 hover:bg-green-50 transition">
-                <i class="fa-solid fa-plus"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-        
         <div class="h-4"></div>
       </main>
 
@@ -76,9 +64,17 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router';
 import { useUser } from '../composables/useUser';
-// On récupère aussi dailyCount et updateDailyGoal pour les faire marcher
-const { user, dailyCount, updateDailyGoal } = useUser();
+
+const router = useRouter();
+// On récupère streak et logout
+const { user, streak, logout } = useUser();
+
+const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+};
 </script>
 
 <style scoped>

@@ -3,6 +3,8 @@ import { db } from '../firebase-config';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, writeBatch } from "firebase/firestore";
 import { useDictionary } from './useDictionary';
 import { generateTargetWords, sendChatMessage, generateIntroMessage } from '../services/aiService';
+// 1. On importe le User pour gérer le Streak
+import { useUser } from './useUser';
 
 export function useChat() {
     const messages = ref([]);
@@ -11,6 +13,8 @@ export function useChat() {
     let unsubscribe = null;
     
     const { fetchDictionary, processEndOfConversation } = useDictionary();
+    // 2. On récupère la fonction d'incrémentation
+    const { incrementStreak } = useUser();
 
     // 1. Démarrage
     const startSession = async (userId, topic, chatId) => {
@@ -45,14 +49,19 @@ export function useChat() {
 
         loading.value = true;
         
+        // --- PROMPT SYSTÈME "NUCLÉAIRE" (Tes 4 Règles Critiques) ---
         const systemContext = `
-            RÔLE : Coach espagnol.
-            Objectifs : Utiliser ${targetWords.value.join(', ')}.
+            RÔLE : Tu es le personnage du scénario en cours. Tu n'es pas une IA standard.
+            Objectifs lexicaux : ${targetWords.value.join(', ')}.
             
-            RÈGLES :
-            1. Utilise au moins 1 mot cible.
-            2. Pose une question ouverte.
-            3. GLOSSAIRE OBLIGATOIRE : Traduis CHAQUE MOT de ta réponse (même les simples comme "y", "es", "bien"). TOUT DOIT ÊTRE TRADUIT.
+            RÈGLES CRITIQUES (A RESPECTER À LA LETTRE) :
+            1. 🎭 ROLEPLAY STRICT : Ne sors JAMAIS du roleplay. Reste dans le contexte.
+            2. ✍️ FORMAT CORRECTION : Si l'utilisateur fait une faute, ta réponse DOIT commencer par : "(Correction = [la correction]) " suivi de ta réponse. Si pas de faute, réponds direct.
+            3. 🚫 ANTI-PERROQUET : Ne répète JAMAIS ce que dit l'utilisateur. Fais avancer la conversation.
+            4. 💡 CRÉATIVITÉ : Si tu ne sais pas quoi dire, invente un détail ou pose une question liée au contexte.
+            
+            🚨 GLOSSAIRE OBLIGATOIRE (DICTIONNAIRE TOTAL) :
+            Traduis **CHAQUE MOT** de ta réponse dans le JSON (verbes conjugués, noms, adjectifs, pronoms). Tout doit être cliquable.
         `;
         
         const aiResponse = await sendChatMessage(messages.value, userText, systemContext);
@@ -70,37 +79,40 @@ export function useChat() {
         });
     };
 
-    // 3. Fin Session (CORRIGÉ : Récupération des traductions)
+    // 3. Fin Session (LOGIQUE PRESERVÉE + STREAK)
     const endSession = async (userId) => {
         loading.value = true;
         
-        // A. On construit un "Dictionnaire de la session" en fusionnant tous les glossaires reçus
+        // A. On construit le "Dictionnaire de session" pour retrouver les traductions manquantes
+        // (C'est ta logique que tu voulais absolument garder)
         const sessionGlossary = {};
         messages.value.forEach(msg => {
             if (msg.role === 'ai' && msg.glossary) {
-                // On met tout en minuscule pour faciliter la recherche
                 Object.keys(msg.glossary).forEach(key => {
                     sessionGlossary[key.toLowerCase()] = msg.glossary[key];
                 });
             }
         });
 
-        // B. On prépare les mots à sauvegarder AVEC leur traduction trouvée
+        // B. On prépare les mots avec leurs traductions
         const wordsToUpdate = targetWords.value.map(word => {
             const cleanWord = word.toLowerCase();
-            // On cherche la trad, ou on met une valeur par défaut
             const translation = sessionGlossary[cleanWord] || "Traduction à vérifier";
             
             return {
-                word: word,          // ex: "Gato"
-                translation: translation, // ex: "Chat"
+                word: word,
+                translation: translation,
                 isNew: true 
             };
         });
 
-        // C. On sauvegarde dans Firebase
+        // C. Sauvegarde Firebase
         await processEndOfConversation(userId, wordsToUpdate);
         
+        // --- D. MISE A JOUR DU STREAK ---
+        await incrementStreak(); 
+        // --------------------------------
+
         messages.value = [];
         targetWords.value = [];
         loading.value = false;

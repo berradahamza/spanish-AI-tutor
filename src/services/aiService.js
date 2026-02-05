@@ -18,7 +18,7 @@ const cleanJSON = (text) => {
     }
 };
 
-// 1. Initialisation (Inchangé)
+// 1. Initialisation
 export const generateTargetWords = async (topic, knownWords) => {
     try {
         const response = await openai.chat.completions.create({
@@ -42,7 +42,7 @@ export const generateTargetWords = async (topic, knownWords) => {
     }
 };
 
-// 2. GÉNÉRATION INTRO (Inchangé)
+// 2. GÉNÉRATION INTRO
 export const generateIntroMessage = async (topic, targetWords) => {
     try {
         const response = await openai.chat.completions.create({
@@ -62,9 +62,6 @@ export const generateIntroMessage = async (topic, targetWords) => {
                     
                     🚨 GLOSSAIRE OBLIGATOIRE (CRITIQUE) :
                     Tu dois remplir le champ "glossary" avec la traduction de **CHAQUE MOT** de ta phrase.
-                    Absolument TOUS les mots (le, la, manger, table...).
-                    ET SURTOUT les mots cibles : ${targetWords.join(', ')}.
-                    Si un mot de ta phrase n'est pas dans le glossaire, c'est une erreur grave.
                     
                     Format JSON :
                     {
@@ -90,7 +87,7 @@ export const generateIntroMessage = async (topic, targetWords) => {
     }
 };
 
-// 3. CHAT (Inchangé)
+// 3. CHAT
 export const sendChatMessage = async (history, userMessage, systemContext) => {
     try {
         let openAIHistory = history.map(msg => ({
