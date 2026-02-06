@@ -7,7 +7,7 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true 
 });
 
-// Nettoyage robuste
+// Nettoyage JSON robuste
 const cleanJSON = (text) => {
     if (!text) return null;
     try {
@@ -18,9 +18,36 @@ const cleanJSON = (text) => {
     }
 };
 
-// 1. Initialisation
+// Utilitaire pour normaliser (minuscule sans accents) pour comparer les mots
+const normalize = (str) => {
+    return str.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
+// --- Service de Traduction API ---
+export const translateWord = async (word) => {
+    try {
+        const cleanWord = word.toLowerCase().trim();
+        const response = await fetch(`https://api.mymemory.translated.net/get?q=${cleanWord}&langpair=es|fr`);
+        const data = await response.json();
+        
+        if (data.responseData && data.responseData.translatedText) {
+            const trad = data.responseData.translatedText.toLowerCase();
+            return trad !== cleanWord ? trad : "Traduction indisponible";
+        }
+        return "Traduction indisponible";
+    } catch (e) {
+        console.error("Erreur API Traduction:", e);
+        return "..."; 
+    }
+};
+
+// 1. INITIALISATION (CORRIGÉ : FILTRE DES MOTS CONNUS)
 export const generateTargetWords = async (topic, knownWords) => {
     try {
+        // On prépare un Set des mots connus pour une recherche instantanée
+        // On normalise tout pour éviter que "Hola" soit différent de "hola"
+        const knownSet = new Set(knownWords.map(w => normalize(w)));
+
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             response_format: { type: "json_object" },
@@ -29,20 +56,44 @@ export const generateTargetWords = async (topic, knownWords) => {
                     role: "system",
                     content: `
                     Tu es un expert pédagogique espagnol. Sujet: "${topic}".
-                    Génère 5 mots de vocabulaire EN ESPAGNOL (jamais de français).
-                    Format JSON : { "words": ["palabra1", "palabra2", "palabra3", "palabra4", "palabra5"] }
+                    L'élève connait déjà ${knownWords.length} mots.
+                    
+                    TÂCHE :
+                    Génère une liste de **15 mots** de vocabulaire EN ESPAGNOL pertinents pour ce sujet.
+                    
+                    CONTRAINTES :
+                    1. Évite les mots trop basiques (el, la, un, soy, hola) sauf s'ils sont cruciaux.
+                    2. Cherche des mots précis liés au thème.
+                    3. Jamais de français dans la liste.
+                    
+                    Format JSON : { "words": ["palabra1", "palabra2", ...] }
                     `
                 }
             ]
         });
+
         const data = JSON.parse(response.choices[0].message.content);
-        return data.words ? data.words.slice(0, 5) : ["hola", "amigo", "fiesta", "gracias", "si"];
+        const candidates = data.words || [];
+
+        // FILTRAGE STRICT CÔTÉ CODE :
+        // On ne garde que les mots qui NE SONT PAS dans le Set des mots connus.
+        const newWords = candidates.filter(word => {
+            return !knownSet.has(normalize(word));
+        });
+
+        // On retourne les 5 premiers mots inconnus trouvés.
+        // Si on en a moins de 5 (l'élève sait tout !), on renvoie ce qu'on a, ou des mots par défaut.
+        const finalSelection = newWords.slice(0, 5);
+        
+        return finalSelection.length > 0 ? finalSelection : ["genial", "super", "claro", "verdad", "quizas"];
+
     } catch (e) {
+        console.error("Erreur génération mots:", e);
         return ["hola", "amigo", "fiesta", "gracias", "si"];
     }
 };
 
-// 2. GÉNÉRATION INTRO (MISE À JOUR : GLOSSAIRE TOTAL)
+// 2. GÉNÉRATION INTRO (Inchangé)
 export const generateIntroMessage = async (topic, targetWords) => {
     try {
         const response = await openai.chat.completions.create({
@@ -60,16 +111,9 @@ export const generateIntroMessage = async (topic, targetWords) => {
                     1. Écris une phrase d'intro en espagnol qui utilise ces mots.
                     2. Pose une question ouverte.
                     
-                    🚨 GLOSSAIRE OBLIGATOIRE (TRADUCTION TOTALE) :
-                    Tu dois impérativement remplir le champ "glossary" avec la traduction de **CHAQUE MOT** de ta phrase.
-                    - Pas seulement les mots difficiles.
-                    - Traduis aussi les articles (el, la), les pronoms (yo, tu), les verbes (es, esta).
-                    - L'utilisateur est débutant absolu, il doit pouvoir cliquer sur n'importe quel mot.
-                    
-                    Format JSON :
+                     Format JSON :
                     {
-                        "spanish": "Ta phrase d'intro...",
-                        "glossary": { "mot_espagnol": "traduction_fr", "el": "le", "es": "est" } 
+                        "spanish": "Ta phrase d'intro..."
                     }
                     `
                 }
@@ -81,16 +125,15 @@ export const generateIntroMessage = async (topic, targetWords) => {
 
         return {
             spanish: data?.spanish || `¡Hola! Hablemos de ${topic}.`,
-            glossary: data?.glossary || {} 
+            glossary: {} 
         };
 
     } catch (e) {
-        console.error("Erreur Intro:", e);
         return { spanish: `¡Hola! Empecemos a hablar de ${topic}.`, glossary: {} };
     }
 };
 
-// 3. CHAT (MISE À JOUR : RAPPEL FORMAT CORRECTION)
+// 3. CHAT (Inchangé)
 export const sendChatMessage = async (history, userMessage, systemContext) => {
     try {
         let openAIHistory = history.map(msg => ({
@@ -111,11 +154,15 @@ export const sendChatMessage = async (history, userMessage, systemContext) => {
                     content: `
                     ${systemContext}
                     
-                    RAPPEL FORMAT JSON STRICT : 
+                    RAPPEL FORMAT JSON STRICT SI FAUTE AUTRE QUE ACCENT MANQUANT OU MAJUSCULE: 
                     { 
-                        "spanish": "( correction : ... ) Ta réponse...", 
-                        "glossary": { "mot": "traduction" } 
+                        "spanish": "( correction : ... ) Ta réponse...(qui contient de préference un mot de la liste des 5 (essaie de varier pendant la conversation)"
                     }
+                    RAPPEL FORMAT JSON STRICT SI AUCUNE FAUTE OU JUSTE UN ACCENT MANQUANT OU UNE MAJ MANQUANTE: 
+                    { 
+                        "spanish": "Ta réponse...(qui contient de préference un mot de la liste des 5 (essaie de varier pendant la conversation)"
+                    }
+                    Ne génère PAS de glossaire.
                     `
                 },
                 ...openAIHistory,
@@ -131,23 +178,7 @@ export const sendChatMessage = async (history, userMessage, systemContext) => {
     }
 };
 
-// 4. Analyse (Inchangé)
-export const analyzeSession = async (messages, targetWords) => {
-    try {
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
-            messages: [
-                { role: "system", content: `Analyse JSON: { "userValidWords": [], "targetWordsLearned": [] }. Cibles: ${JSON.stringify(targetWords)}. Hist: ${JSON.stringify(messages)}.` }
-            ]
-        });
-        return cleanJSON(response.choices[0].message.content) || { userValidWords: [], targetWordsLearned: [] };
-    } catch (e) {
-        return { userValidWords: [], targetWordsLearned: [] };
-    }
-};
-
-// 5. RÉVISION (Inchangé)
+// 4. RÉVISION (Inchangé)
 export const generateRevisionExercises = async (userWords) => {
     try {
         const wordsToPractice = userWords.sort(() => 0.5 - Math.random()).slice(0, 10);
@@ -166,7 +197,7 @@ export const generateRevisionExercises = async (userWords) => {
                     Tâche : Crée 5 exercices de traduction (Français -> Espagnol).
                     Pour chaque exercice :
                     1. Écris une phrase TRÈS SIMPLE en Français (niveau enfant/débutant).
-                    2. Cette phrase doit nécessiter l'utilisation d'un des mots connus pour être traduite.
+                    2. Cette phrase doit nécessiter l'utilisation d'un des mots connus pour être traduite (le mot doit connu doit etre ecrit en francais sur la phrase !!).
                     3. Donne la traduction correcte attendue en Espagnol.
                     
                     Format JSON attendu :
@@ -187,12 +218,11 @@ export const generateRevisionExercises = async (userWords) => {
         const data = JSON.parse(response.choices[0].message.content);
         return data.exercises || [];
     } catch (e) {
-        console.error("Erreur Révision:", e);
         return [];
     }
 };
 
-// 6. LE JUGE IA (Inchangé - Tolérant)
+// 5. JUGE IA (Inchangé)
 export const verifyRevisionAnswer = async (userAnswer, expectedSpanish, frenchOriginal) => {
     try {
         const response = await openai.chat.completions.create({
@@ -211,23 +241,14 @@ export const verifyRevisionAnswer = async (userAnswer, expectedSpanish, frenchOr
                     
                     TES ORDRES ABSOLUS :
                     1. **SI LES MOTS SONT BONS, C'EST GAGNÉ (isCorrect: true)**.
-                    
-                    2. **LES ACCENTS NE COMPTENT PAS COMME UNE FAUTE** : 
-                       - Si l'élève écrit "tu" au lieu de "tú" -> TU DOIS METTRE **isCorrect: true**.
-                       - Si l'élève écrit "esta" au lieu de "está" -> TU DOIS METTRE **isCorrect: true**.
-                       - Dans ce cas, ton feedback doit être positif : "Bravo ! (Attention juste à l'accent sur 'tú')".
-                    
-                    3. **LES MAJUSCULES NE COMPTENT PAS**. Ignore-les complètement.
-                    
-                    4. **REFUSE (isCorrect: false) UNIQUEMENT SI** :
-                       - L'élève utilise le mauvais mot (ex: "Chien" au lieu de "Chat").
-                       - L'orthographe est tellement mauvaise qu'on ne reconnaît pas le mot.
-                       - La phrase n'a pas de sens.
+                    2. **LES ACCENTS NE COMPTENT PAS COMME UNE FAUTE**.
+                    3. **LES MAJUSCULES NE COMPTENT PAS**.
+                    4. **REFUSE (isCorrect: false) UNIQUEMENT SI** le mot est faux ou incompréhensible.
 
                     Format JSON attendu :
                     {
                         "isCorrect": boolean,
-                        "feedback": "Ton commentaire (Sois positif si c'est juste un accent !)"
+                        "feedback": "Ton commentaire (Sois positif !)"
                     }
                     `
                 }
@@ -238,7 +259,6 @@ export const verifyRevisionAnswer = async (userAnswer, expectedSpanish, frenchOr
         return data || { isCorrect: false, feedback: "Erreur d'analyse." };
 
     } catch (e) {
-        console.error("Erreur Vérification:", e);
         const normalize = str => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
         return { 
             isCorrect: normalize(userAnswer) === normalize(expectedSpanish), 

@@ -2,8 +2,8 @@ import { ref } from 'vue';
 import { db } from '../firebase-config';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, writeBatch } from "firebase/firestore";
 import { useDictionary } from './useDictionary';
-import { generateTargetWords, sendChatMessage, generateIntroMessage } from '../services/aiService';
-// 1. On importe le User pour gérer le Streak (Préservé)
+// ON IMPORTE LE SERVICE DE TRADUCTION
+import { generateTargetWords, sendChatMessage, generateIntroMessage, translateWord } from '../services/aiService';
 import { useUser } from './useUser';
 
 export function useChat() {
@@ -13,7 +13,6 @@ export function useChat() {
     let unsubscribe = null;
     
     const { fetchDictionary, processEndOfConversation } = useDictionary();
-    // 2. On récupère la fonction d'incrémentation (Préservé)
     const { incrementStreak } = useUser();
 
     // 1. Démarrage (Inchangé)
@@ -32,14 +31,14 @@ export function useChat() {
             await addDoc(messagesRef, {
                 role: 'ai',
                 text: introData.spanish,
-                glossary: introData.glossary, 
+                glossary: {}, // Vide maintenant
                 createdAt: serverTimestamp()
             });
         }
         loading.value = false;
     };
 
-    // 2. Envoi Message (UPDATE DU PROMPT ICI UNIQUEMENT)
+    // 2. Envoi Message (Prompt sans glossaire)
     const sendMessage = async (userId, userText, chatId) => {
         if (!userText.trim()) return;
 
@@ -49,21 +48,18 @@ export function useChat() {
 
         loading.value = true;
         
-        // --- MISE A JOUR : TES 4 REGLES CRITIQUES ---
         const systemContext = `
             RÔLE : Tu es le personnage du scénario.
             Objectifs : ${targetWords.value.join(', ')}.
             
-            ⚠️ RÈGLES CRITIQUES (IMPORTANCE MAXIMALE) ⚠️ :
-            1. 🎭 ROLEPLAY : Ne sors JAMAIS du roleplay ni du contexte donné par l'utilisateur. Tu es un personnage, pas une IA.
-            2. 🚫 ANTI-PERROQUET : Ne répète JAMAIS ce que l'utilisateur vient de dire. Fais avancer l'histoire.
-            3. ✍️ CORRECTION FORMELLE : Si l'utilisateur fait une erreur (orthographe, grammaire, mot), tu DOIS commencer ta réponse par :
+            ⚠️ RÈGLES CRITIQUES :
+            1. 🎭 ROLEPLAY : Ne sors JAMAIS du roleplay.
+            2. 🚫 ANTI-PERROQUET : Ne répète JAMAIS la phrase de l'utilisateur.
+            3. ✍️ CORRECTION FORMELLE : Si l'utilisateur fait une erreur, commence par :
                ( correction : [la phrase corrigée] )
-               Ensuite seulement, tu mets ta réponse roleplay.
-            4. 💡 CRÉATIVITÉ : Si tu ne sais pas quoi dire, sois créatif, invente un détail du scénario.
+            4. 💡 CRÉATIVITÉ : Sois créatif.
             
-            🚨 GLOSSAIRE TOTAL :
-            Traduis CHAQUE MOT de ta réponse dans le JSON (y compris 'le', 'la', 'est', etc.).
+            (Pas de glossaire nécessaire).
         `;
         
         const aiResponse = await sendChatMessage(messages.value, userText, systemContext);
@@ -71,34 +67,23 @@ export function useChat() {
         loading.value = false;
 
         const textToSave = aiResponse.spanish || "...";
-        const glossaryToSave = aiResponse.glossary || {};
-
+        
         await addDoc(messagesRef, {
             text: textToSave,
-            glossary: glossaryToSave,
+            glossary: {}, // Vide
             role: 'ai',
             createdAt: serverTimestamp()
         });
     };
 
-    // 3. Fin Session (LOGIQUE PRÉSERVÉE : Traduction intelligente + Streak)
+    // 3. Fin Session (LOGIQUE MISE A JOUR : Traduction API)
     const endSession = async (userId) => {
         loading.value = true;
         
-        // A. On construit le "Dictionnaire de la session" (Ta logique préservée)
-        const sessionGlossary = {};
-        messages.value.forEach(msg => {
-            if (msg.role === 'ai' && msg.glossary) {
-                Object.keys(msg.glossary).forEach(key => {
-                    sessionGlossary[key.toLowerCase()] = msg.glossary[key];
-                });
-            }
-        });
-
-        // B. On prépare les mots (Ta logique préservée)
-        const wordsToUpdate = targetWords.value.map(word => {
-            const cleanWord = word.toLowerCase();
-            const translation = sessionGlossary[cleanWord] || "Traduction à vérifier";
+        // On traduit les mots cibles un par un via l'API avant de sauvegarder
+        const wordsToUpdatePromise = targetWords.value.map(async (word) => {
+            // Appel API pour avoir la trad propre
+            const translation = await translateWord(word);
             return {
                 word: word,
                 translation: translation, 
@@ -106,12 +91,13 @@ export function useChat() {
             };
         });
 
-        // C. On sauvegarde
+        const wordsToUpdate = await Promise.all(wordsToUpdatePromise);
+
+        // Sauvegarde Firebase
         await processEndOfConversation(userId, wordsToUpdate);
         
-        // --- D. STREAK (Ta nouveauté préservée) ---
+        // Streak
         await incrementStreak();
-        // ------------------------------------------
 
         messages.value = [];
         targetWords.value = [];

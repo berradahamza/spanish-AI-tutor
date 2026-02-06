@@ -65,9 +65,8 @@
 
               <div v-else class="flex flex-wrap items-baseline gap-x-1">
                 <template v-for="(token, tIndex) in splitText(msg.text)" :key="tIndex">
-                  
                   <span v-if="isWord(token)" 
-                        @click.stop="handleWordClick(token, msg.glossary, $event)"
+                        @click.stop="handleWordClick(token, $event)"
                         :class="[
                             'cursor-pointer px-0.5 transition duration-150 rounded',
                             isTargetWord(token) 
@@ -76,7 +75,6 @@
                         ]">
                     {{ token }}
                   </span>
-                  
                   <span v-else>{{ token }}</span>
                 </template>
               </div>
@@ -93,9 +91,15 @@
 
       <div v-if="tooltip.visible" 
            :style="{ top: tooltip.y + 'px', left: tooltip.x + 'px' }"
-           class="fixed z-50 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl transform -translate-x-1/2 -translate-y-full mt-[-8px] pointer-events-none animate-fade-in">
+           class="fixed z-50 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl transform -translate-x-1/2 -translate-y-full mt-[-8px] pointer-events-none animate-fade-in min-w-[80px] text-center">
+        
         <div class="font-bold capitalize mb-0.5">{{ tooltip.word }}</div>
-        <div class="text-gray-300 italic">{{ tooltip.translation }}</div>
+        
+        <div v-if="tooltip.loading" class="flex justify-center py-1">
+            <i class="fa-solid fa-circle-notch fa-spin text-gray-400"></i>
+        </div>
+        <div v-else class="text-gray-300 italic">{{ tooltip.translation }}</div>
+        
         <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1 w-2 h-2 bg-gray-900 rotate-45"></div>
       </div>
 
@@ -127,6 +131,8 @@ import { ref, onMounted, nextTick, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUser } from '../composables/useUser';
 import { useChat } from '../composables/useChat';
+// On importe le service de traduction pour le clic
+import { translateWord } from '../services/aiService';
 
 const router = useRouter();
 const route = useRoute();
@@ -145,7 +151,12 @@ const {
 const currentTopic = ref('');
 const userInput = ref('');
 const chatContainer = ref(null);
-const tooltip = ref({ visible: false, x: 0, y: 0, word: '', translation: '' });
+
+// Etat du tooltip enrichi avec 'loading'
+const tooltip = ref({ visible: false, x: 0, y: 0, word: '', translation: '', loading: false });
+
+// Cache simple pour éviter de rappeler l'API sur le même mot
+const translationCache = new Map();
 
 onMounted(() => {
   currentTopic.value = localStorage.getItem('currentScenario') || 'Général';
@@ -194,49 +205,45 @@ function isWord(token) {
   return /^[a-zA-ZáéíóúñÁÉÍÓÚÑüÜ]+$/.test(token);
 }
 
-// AMÉLIORATION : Détection intelligente des mots cibles (insensible casse + accents + pluriels simples)
 function isTargetWord(token) {
     if (!token || targetWords.value.length === 0) return false;
-    
-    // On nettoie le mot du chat (minuscule, sans accent)
     const cleanToken = token.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
     return targetWords.value.some(target => {
-        // On nettoie le mot cible
         const cleanTarget = target.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        
-        // 1. Match Exact
         if (cleanToken === cleanTarget) return true;
-        
-        // 2. Match Pluriel (Si le token contient le mot cible, ex: "gatos" contient "gato")
         if (cleanToken.includes(cleanTarget) && cleanToken.length <= cleanTarget.length + 2) return true;
-        
         return false;
     });
 }
 
-function handleWordClick(word, glossary, event) {
-  clearSelection();
-  const cleanKey = word.toLowerCase().replace(/[.,!?;:]/g, "");
-  let translation = "Traduction indisponible";
-  
-  if (glossary) {
-      if (glossary[word]) translation = glossary[word];
-      else if (glossary[cleanKey]) translation = glossary[cleanKey];
-      else {
-          const foundKey = Object.keys(glossary).find(k => k.toLowerCase().includes(cleanKey) || cleanKey.includes(k.toLowerCase()));
-          if (foundKey) translation = glossary[foundKey];
-      }
-  }
-
+// GESTION DU CLIC AVEC APPEL API
+async function handleWordClick(word, event) {
+  // 1. On affiche le tooltip tout de suite en mode "chargement"
   const rect = event.target.getBoundingClientRect();
   tooltip.value = {
     visible: true,
     x: rect.left + rect.width / 2,
     y: rect.top,
     word: word,
-    translation: translation
+    translation: '...',
+    loading: true
   };
+
+  // 2. Vérif Cache
+  const cleanWord = word.toLowerCase().trim();
+  if (translationCache.has(cleanWord)) {
+      tooltip.value.translation = translationCache.get(cleanWord);
+      tooltip.value.loading = false;
+      return;
+  }
+
+  // 3. Appel API (via notre service)
+  const translation = await translateWord(cleanWord);
+  
+  // 4. Mise à jour UI + Cache
+  tooltip.value.translation = translation;
+  tooltip.value.loading = false;
+  translationCache.set(cleanWord, translation);
 }
 
 function clearSelection() {
