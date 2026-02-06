@@ -6,6 +6,8 @@ import Setup from '../views/Setup.vue'
 import Chat from '../views/Chat.vue'
 import Dico from '../views/Dico.vue'
 import Revision from '../views/Revision.vue'
+import StorySetup from '../views/StorySetup.vue'
+import StoryMode from '../views/StoryMode.vue'
 
 const routes = [
   { path: '/login', component: Login },
@@ -14,6 +16,8 @@ const routes = [
   { path: '/chat', component: Chat, meta: { requiresAuth: true } },
   { path: '/dico', component: Dico, meta: { requiresAuth: true } },
   { path: '/revision', component: Revision, meta: { requiresAuth: true } },
+  { path: '/story-setup', component: StorySetup },
+  { path: '/story-mode', component: StoryMode },
 ]
 
 const router = createRouter({

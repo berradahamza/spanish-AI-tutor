@@ -54,6 +54,23 @@
                 <div class="w-14 h-14 organic-shape bg-green-50 flex items-center justify-center text-green-600 mb-1 shadow-sm"><i class="fa-solid fa-dumbbell text-2xl"></i></div>
                 <div><h3 class="font-bold text-gray-800">Révisions</h3></div>
             </router-link>
+            <router-link to="/story-setup" class="col-span-2 mt-4 bg-white p-5 rounded-3xl shadow-lg border border-indigo-100 flex items-center justify-between card-hover transition hover:shadow-xl cursor-pointer group relative overflow-hidden">
+                <div class="absolute right-0 top-0 w-24 h-24 bg-indigo-50 rounded-full -mr-8 -mt-8 opacity-50 blur-xl"></div>
+                
+                <div class="flex items-center gap-4 relative z-10">
+                    <div class="w-14 h-14 organic-shape bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition duration-300 border border-indigo-100">
+                        <i class="fa-solid fa-book-journal-whills text-2xl"></i>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="font-bold text-gray-800 text-lg">Mon Histoire</h3>
+                        <p class="text-gray-500 text-xs">Crée ton aventure (5 pages)</p>
+                    </div>
+                </div>
+                
+                <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition">
+                    <i class="fa-solid fa-play ml-0.5"></i>
+                </div>
+            </router-link>
         </div>
 
         <div class="h-4"></div>

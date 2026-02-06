@@ -195,10 +195,15 @@ export const generateRevisionExercises = async (userWords) => {
                     L'élève connait ces mots en espagnol : ${wordsString}.
                     
                     Tâche : Crée 5 exercices de traduction (Français -> Espagnol).
-                    Pour chaque exercice :
-                    1. Écris une phrase TRÈS SIMPLE en Français (niveau enfant/débutant).
-                    2. Cette phrase doit nécessiter l'utilisation d'un des mots connus pour être traduite (le mot doit connu doit etre ecrit en francais sur la phrase !!).
-                    3. Donne la traduction correcte attendue en Espagnol.
+                    
+                    RÈGLES CRITIQUES POUR LA PHRASE EN FRANÇAIS :
+                    1. Choisis un mot de la liste (ex: "gato").
+                    2. Traduis-le mentalement en français (ex: "chat").
+                    3. Construis une phrase simple en FRANÇAIS avec ce mot traduit.
+                    
+                    ⛔ INTERDICTION ABSOLUE : N'écris JAMAIS le mot espagnol dans la phrase française.
+                    - MAUVAIS : "Le gato mange."
+                    - BON : "Le chat mange."
                     
                     Format JSON attendu :
                     {
@@ -264,5 +269,58 @@ export const verifyRevisionAnswer = async (userAnswer, expectedSpanish, frenchOr
             isCorrect: normalize(userAnswer) === normalize(expectedSpanish), 
             feedback: "Vérification hors ligne (tolérante)." 
         };
+    }
+};
+
+// NOUVEAU : Générateur d'Histoire Interactive
+export const generateStoryPage = async (theme, pageNumber, history, userChoice) => {
+    try {
+        const isFinalPage = pageNumber === 5;
+        
+        let systemPrompt = `
+        Rôle : Tu es un écrivain d'histoires interactives pour débutants en espagnol.
+        Tâche : Écris la **PAGE ${pageNumber}/5** de l'histoire sur le thème : "${theme}".
+        
+        FORMAT OBLIGATOIRE (Style Théâtre) :
+        - Utilise "NARRADOR:" pour les descriptions de l'action.
+        - Utilise "NOM_PERSONNAGE:" pour les dialogues.
+        - Langage : ESPAGNOL TRÈS SIMPLE (Niveau A1). Phrases courtes.
+        
+        CONTEXTE PRÉCÉDENT :
+        ${history}
+        
+        ACTION DU JOUEUR (qui dicte la suite) :
+        "${userChoice}"
+        `;
+
+        if (isFinalPage) {
+            systemPrompt += `
+            Ceci est la DERNIÈRE PAGE. Conclus l'histoire de manière amusante ou intense.
+            Ne pose PAS de question à la fin.
+            Format JSON : { "spanishContent": "Texte de la fin...", "isEnd": true }
+            `;
+        } else {
+            systemPrompt += `
+            Fais avancer l'intrigue rapidement.
+            À la fin, propose un dilemme ou une question pour la suite.
+            Format JSON : 
+            { 
+                "spanishContent": "Texte de l'histoire...", 
+                "question": "Question pour le joueur en espagnol (ex: ¿Qué debe hacer Pablo?)" 
+            }
+            `;
+        }
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [{ role: "system", content: systemPrompt }]
+        });
+
+        return cleanJSON(response.choices[0].message.content) || { spanishContent: "Fin.", isEnd: true };
+
+    } catch (e) {
+        console.error("Erreur Story:", e);
+        return { spanishContent: "Erreur de génération.", isEnd: true };
     }
 };
