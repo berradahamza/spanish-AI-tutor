@@ -5,9 +5,9 @@
       <header class="bg-red-800 sagrada-header-texture text-white p-4 shadow-md z-20 relative">
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-3">
-            <router-link to="/" class="hover:bg-red-700 p-2 rounded-full transition">
+            <button @click="handleBackRequest" class="hover:bg-red-700 p-2 rounded-full transition cursor-pointer">
               <i class="fa-solid fa-arrow-left"></i>
-            </router-link>
+            </button>
             <div>
               <h1 class="font-bold text-lg tracking-wide truncate max-w-[150px] capitalize">{{ currentTopic }}</h1>
               <div class="text-xs text-red-200 flex items-center gap-1">
@@ -122,6 +122,32 @@
         </button>
       </footer>
 
+      <div v-if="showExitModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs text-center border border-gray-100">
+            
+            <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-2xl animate-bounce-slow">
+                <i class="fa-solid fa-person-walking-arrow-right"></i>
+            </div>
+
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Quitter la session ?</h3>
+            
+            <p class="text-gray-500 text-sm mb-6 leading-relaxed">
+                Si tu pars maintenant, <strong>les nouveaux mots ne seront pas enregistrés</strong> dans ton dictionnaire.
+            </p>
+
+            <div class="flex gap-3">
+                <button @click="showExitModal = false" 
+                    class="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition">
+                    Rester
+                </button>
+                <button @click="confirmExit" 
+                    class="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg shadow-red-200 transition">
+                    Quitter
+                </button>
+            </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -157,6 +183,23 @@ const tooltip = ref({ visible: false, x: 0, y: 0, word: '', translation: '', loa
 
 // Cache simple pour éviter de rappeler l'API sur le même mot
 const translationCache = new Map();
+
+// AJOUT : Gestion de la modale de sortie
+const showExitModal = ref(false);
+
+const handleBackRequest = () => {
+    // Si la conversation n'a pas vraiment commencé (0 message), on laisse sortir
+    if (messages.value.length === 0) {
+        router.push('/');
+        return;
+    }
+    showExitModal.value = true;
+};
+
+const confirmExit = () => {
+    showExitModal.value = false;
+    router.push('/');
+};
 
 onMounted(() => {
   currentTopic.value = localStorage.getItem('currentScenario') || 'Général';
@@ -285,4 +328,11 @@ function speak(text) {
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .animate-fade-in { animation: fadeIn 0.2s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -90%); } to { opacity: 1; transform: translate(-50%, -100%); } }
+
+/* Ajout pour l'animation de la modale */
+.animate-bounce-slow { animation: bounce 2s infinite; }
+@keyframes bounce {
+  0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+  50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+}
 </style>

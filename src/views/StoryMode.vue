@@ -7,7 +7,7 @@
             <button @click="quit" class="hover:bg-indigo-700 p-2 rounded-full transition">
                  <i class="fa-solid fa-xmark"></i>
             </button>
-            <h1 class="font-bold text-lg">Page {{ currentPage }} / 5</h1>
+            <h1 class="font-bold text-lg">Page {{ loading ? currentPage + 1 : currentPage }} / 5</h1>
         </div>
         <div class="text-[10px] bg-indigo-800 px-2 py-1 rounded border border-indigo-600 uppercase font-bold tracking-wider">
             Théâtre
@@ -99,6 +99,7 @@ import { useStory } from '../composables/useStory';
 import { translateWord } from '../services/aiService';
 
 const router = useRouter();
+// On récupère aussi 'storyContent' depuis le composable pour pouvoir le manipuler ici
 const { loading, currentPage, storyContent, isFinished, startStory, nextSegment } = useStory();
 const mainContainer = ref(null);
 
@@ -113,7 +114,6 @@ onMounted(() => {
     startStory(theme);
 });
 
-// Parsing format Théâtre
 const parsedLines = computed(() => {
     if (!storyContent.value?.spanishContent) return [];
     const rawLines = storyContent.value.spanishContent.split('\n');
@@ -121,16 +121,12 @@ const parsedLines = computed(() => {
         line = line.trim();
         if (!line) return null;
         
-        // Détection "PERSONNAGE:"
         const colonIndex = line.indexOf(':');
-        // Si ':' existe au début et que ce n'est pas une phrase narrative longue
         if (colonIndex > -1 && colonIndex < 20) { 
              const potentialSpeaker = line.substring(0, colonIndex).toUpperCase();
-             // Si ça commence par NARRADOR, c'est du narratif
              if (potentialSpeaker.includes('NARRADOR')) {
                  return { isNarrator: true, text: line.substring(colonIndex + 1).trim() };
              }
-             // Sinon c'est un dialogue
              return {
                  isNarrator: false,
                  speaker: line.substring(0, colonIndex),
@@ -145,21 +141,31 @@ const handleNext = async () => {
     if (!userChoice.value.trim()) return;
     const choice = userChoice.value;
     userChoice.value = '';
+    
+    // 1. ON VIDE L'ECRAN IMMEDIATEMENT
+    // Comme storyContent est une ref du composable, on peut la modifier si le composable l'exporte bien.
+    // NOTE : Si le composable exporte une ref en readonly, il faudra modifier le composable.
+    // Mais ici on suppose que storyContent est modifiable ou qu'on le force à null visuellement.
+    storyContent.value = null; 
+    
+    // 2. L'appel déclenche le loading=true dans le composable
     await nextSegment(theme, choice);
-    scrollToBottom();
+    
+    // 3. UNE FOIS CHARGÉ, ON SCROLL EN HAUT
+    scrollToTop();
 };
 
 const quit = () => {
     if(confirm("Quitter l'histoire ? La progression sera perdue.")) router.push('/');
 };
 
-function scrollToBottom() {
+// Fonction pour remonter tout en haut
+function scrollToTop() {
   nextTick(() => {
-    if (mainContainer.value) mainContainer.value.scrollTop = mainContainer.value.scrollHeight;
+    if (mainContainer.value) mainContainer.value.scrollTop = 0;
   });
 }
 
-// Outils Traduction
 function splitText(text) { return text ? text.split(/([a-zA-ZáéíóúñÁÉÍÓÚÑüÜ]+)/g).filter(t => t) : []; }
 function isWord(token) { return /^[a-zA-ZáéíóúñÁÉÍÓÚÑüÜ]+$/.test(token); }
 

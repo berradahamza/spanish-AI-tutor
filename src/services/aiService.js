@@ -324,3 +324,98 @@ export const generateStoryPage = async (theme, pageNumber, history, userChoice) 
         return { spanishContent: "Erreur de génération.", isEnd: true };
     }
 };
+
+// 1. Générer le tableau de conjugaison
+export const getConjugationTable = async (tense, mode, specificVerb, userWords) => {
+    try {
+        let contentPrompt = "";
+        
+        if (mode === 'manual') {
+            contentPrompt = `Conjugue le verbe espagnol "${specificVerb}" au temps "${tense}".`;
+        } else {
+            // Mode Aléatoire
+            const sampleWords = userWords.slice(0, 50).join(', '); // On donne un échantillon pour aider
+            contentPrompt = `
+            Tâche : Choisis un verbe espagnol.
+            Priorité : Choisis un verbe présent dans cette liste : [${sampleWords}].
+            Si aucun verbe n'est trouvé ou si la liste est vide, choisis un verbe courant (ex: Comer, Hablar, Vivir).
+            
+            Une fois choisi, conjugue-le au temps "${tense}".
+            `;
+        }
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [
+                {
+                    role: "system",
+                    content: `
+                    ${contentPrompt}
+                    
+                    Format JSON ATTENDU :
+                    {
+                        "verb": "Infinitif (ex: Hablar)",
+                        "translation": "Traduction FR (ex: Parler)",
+                        "tense": "Le temps choisi",
+                        "table": [
+                            { "pronoun": "Yo", "conjugation": "hablo" },
+                            { "pronoun": "Tú", "conjugation": "hablas" },
+                            { "pronoun": "Él/Ella/Usted", "conjugation": "habla" },
+                            { "pronoun": "Nosotros", "conjugation": "hablamos" },
+                            { "pronoun": "Vosotros", "conjugation": "habláis" },
+                            { "pronoun": "Ellos/Ellas", "conjugation": "hablan" }
+                        ]
+                    }
+                    `
+                }
+            ]
+        });
+
+        return cleanJSON(response.choices[0].message.content);
+    } catch (e) {
+        console.error("Erreur Conjugaison Table:", e);
+        return null;
+    }
+};
+
+// 2. Générer les exercices à trous
+export const generateConjugationExercises = async (verb, tense) => {
+    try {
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [
+                {
+                    role: "system",
+                    content: `
+                    Tu es un prof d'espagnol.
+                    Sujet : Exercice de conjugaison pour le verbe "${verb}" au temps "${tense}".
+                    
+                    Tâche : Crée **10 phrases** à trous.
+                    Chaque phrase doit avoir un trou "___" où l'utilisateur doit mettre le verbe conjugué.
+                    Varie les pronoms (Yo, Tú, Nosotros, etc.).
+                    
+                    Format JSON :
+                    {
+                        "exercises": [
+                            {
+                                "sentence": "Yo ___ en Madrid.",
+                                "answer": "vivo",
+                                "pronoun": "Yo",
+                                "hint": "vivir"
+                            }
+                        ]
+                    }
+                    `
+                }
+            ]
+        });
+
+        const data = cleanJSON(response.choices[0].message.content);
+        return data?.exercises || [];
+    } catch (e) {
+        console.error("Erreur Conjugaison Exercices:", e);
+        return [];
+    }
+};

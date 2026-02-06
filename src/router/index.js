@@ -8,6 +8,7 @@ import Dico from '../views/Dico.vue'
 import Revision from '../views/Revision.vue'
 import StorySetup from '../views/StorySetup.vue'
 import StoryMode from '../views/StoryMode.vue'
+import Conjugation from '../views/Conjugation.vue';
 
 const routes = [
   { path: '/login', component: Login },
@@ -18,6 +19,7 @@ const routes = [
   { path: '/revision', component: Revision, meta: { requiresAuth: true } },
   { path: '/story-setup', component: StorySetup },
   { path: '/story-mode', component: StoryMode },
+  { path: '/conjugation', component: Conjugation, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({
